@@ -1,0 +1,41 @@
+[tool.poetry]
+name = "2024sacojetty"
+package-mode=false
+version = "0.1.1"
+description = "Pre/Post processing code for SACO Jetty Project 2024"
+authors = [
+   "Michael-Angelo Y.-H. Lam <michael.y.lam@erdc.dren.mil>",
+   "Marissa  J. Torres <Marissa.J.Torres@erdc.dren.mil>",
+]
+maintainers = [
+   "Michael-Angelo Y.-H. Lam <michaelangelo.yh.lam@gmail.com>"
+]
+keywords = ["funwave-tvd"]
+license = "BSD-2-Clause"
+readme = "README.md"
+
+[tool.poetry.group.dev.dependencies]
+ruff = "^0.5.2"
+
+[project.urls]
+#documentation = "https://mayhl.github.io/FUNWAVE-TVD-Python-Tools/"
+repository = "https://git.erdc.dren.mil/funwave/2024_saco_jetty"
+
+[tool.poetry.dependencies]
+python = "^3.10.4"
+shapely = "^2.0.3"
+pyproj = "^3.6.1"
+numpy = "^2.0.0"
+notebook = "^7.2.1"
+pandas = "^2.2.2"
+tqdm = "^4.66.4"
+scipy = "^1.14.0"
+rasterio = "^1.3.10"
+bokeh = "^3.5.0"
+jupyter-bokeh = "^4.0.5"
+cmocean = "^4.0.3"
+jupyterlab = "^4.0.5"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
