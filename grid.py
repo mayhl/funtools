@@ -1,13 +1,13 @@
-import src.parse_raw_data as rparser
+from funtools.parse_raw_data import * 
 #from src.create_scatter_poly import generate as generate_scatter_poly
 #from src.create_equipartition_poly import generate as generate_equipartition_poly
 #from src.buffer_fill_poly import fill as buffer_fill_poly
-from src.datum import Datum
-import src.bokeh as qbokeh
+from funtools.datum import Datum
+import funtools.bokeh as qbokeh
 
-from src.misc import pop_dict_keys
-from src.error import *
-from src.transform import Transformer
+from funtools.misc import pop_dict_keys
+from funtools.error import *
+from funtools.transform import Transformer
 
 from shapely import GeometryCollection, MultiPolygon, Polygon, LineString, MultiLineString
 from bokeh.models import ColorBar
@@ -337,9 +337,9 @@ class UnstructuredGrid:
             raise Exception("Can load data; data has already been read.")
 
         pmap = {
-            "csv": rparser.read_csv,
-            "table": rparser.read_pandas_csv,
-            "geotiff": rparser.read_geotiff,
+            "csv": read_csv,
+            "table": read_pandas_csv,
+            "geotiff": read_geotiff,
         }
 
         assert method in pmap.keys(), "Unknown read method '%s'." % method
@@ -384,7 +384,7 @@ class UnstructuredGrid:
 
     def filter_xyz_in_poly(self, key, n_procs=1):
 
-        from src.polyfilter import filter_scatter_poly as filter_xyz_in_poly
+        from funtools.polyfilter import filter_scatter_poly as filter_xyz_in_poly
         assert key in self._data, "Invalid data key"
         xyz = self._data[key].xyz
         poly = self._data[key].poly

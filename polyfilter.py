@@ -1,5 +1,5 @@
 import numpy as np
-from src.parallel import simple as sparallel
+from funtools.parallel import simple as sparallel
 from shapely.geometry import Polygon, MultiPolygon, Point
 
 

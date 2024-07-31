@@ -2,7 +2,7 @@ import shapely
 from shapely import Polygon, Point
 import numpy as np
 
-from src.parallel import simple as sparallel 
+from funtools.parallel import simple as sparallel 
 
 def get_buff_simplify_poly(poly, buf, tol):
     return poly.buffer(buf).buffer(-buf).simplify(tolerance=tol)

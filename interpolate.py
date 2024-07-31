@@ -1,5 +1,5 @@
-from src.parallel import simple as sparallel
-from src.subgrid import compute_equislices
+from funtools.parallel import simple as sparallel
+from funtools.subgrid import compute_equislices
 from scipy.interpolate import LinearNDInterpolator    
 from scipy.interpolate import CloughTocher2DInterpolator
 

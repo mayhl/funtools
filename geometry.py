@@ -1,12 +1,10 @@
 
-from src.subgrid import *
-
+from funtools.subgrid import *
+from funtools.parallel import simple as sparallel 
 
 from scipy.spatial import cKDTree as KDTree
 
-
 import numpy as np
-from src.parallel import simple as sparallel 
 
 
 

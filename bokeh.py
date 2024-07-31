@@ -1,5 +1,5 @@
-from src.error import *
-from src.misc import pop_dict_keys, pop_dict_key
+from funtools.error import *
+from funtools.misc import pop_dict_keys, pop_dict_key
 
 import numpy as np
 from bokeh.palettes import all_palettes

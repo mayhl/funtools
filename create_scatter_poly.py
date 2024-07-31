@@ -3,8 +3,8 @@ import numpy as np
 import shapely
 from shapely.geometry import Polygon
 
-from src.parallel import simple as eparallel
-from src.subgrid import *# compute_equipartition, subdivide_by_ranges, linear2coord_index
+from funtools.parallel import simple as eparallel
+from funtools.subgrid import *# compute_equipartition, subdivide_by_ranges, linear2coord_index
 
 def create_box(ds, x0, y0):
     h = ds

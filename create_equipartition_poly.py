@@ -2,8 +2,8 @@ import rasterio
 import numpy as np
 
 from shapely.geometry import Polygon, Point
-from src.parallel import simple as eparallel
-from src.subgrid import compute_equislices as compute_equislices
+from funtools.parallel import simple as eparallel
+from funtools.subgrid import compute_equislices as compute_equislices
 
 def generate(kdtree, mask, n_procs=1):
 

@@ -1,4 +1,4 @@
-from src.error import *
+from funtools.error import *
 
 import pyproj
 from functools import partial 

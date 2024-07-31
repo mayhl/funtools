@@ -5,12 +5,12 @@ from scipy.spatial import cKDTree as KDTree
 
 from shapely import Polygon, MultiPolygon
 
-import src.bokeh as qbokeh
+import funtools.bokeh as qbokeh
 
-from src.error import *
-from src.create_scatter_poly import generate as generate_scatter_poly
-from src.create_equipartition_poly import generate as generate_equipartition_poly
-from src.buffer_fill_poly import create as buffer_fill_poly
+from funtools.error import *
+from funtools.create_scatter_poly import generate as generate_scatter_poly
+from funtools.create_equipartition_poly import generate as generate_equipartition_poly
+from funtools.buffer_fill_poly import create as buffer_fill_poly
 
 
 

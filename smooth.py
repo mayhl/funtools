@@ -1,8 +1,8 @@
 
 import numpy as np
 
-from src.subgrid import compute_equislices
-from src.parallel import simple as sparallel
+from funtools.subgrid import compute_equislices
+from funtools.parallel import simple as sparallel
 
 from scipy.ndimage import gaussian_filter
 from scipy import signal
