@@ -1,4 +1,5 @@
 import numpy as np
+from functools import reduce
 
 # Sub-divides an n-dimensional grid into a subgrid with nearly
 # equal side length, i.e., as square-ish as possible 
@@ -136,3 +137,43 @@ def coord2linear_index(coords, dims):
     assert len(coords) == n, "Error"
     i = coords[-1] + np.sum([coords[i]*np.prod(dims[i+1:]) for i in range(n-1)])
     return int(i)
+
+
+
+def compute_factors(n):    
+    factors= reduce(list.__add__, 
+                ([i, n//i] for i in range(1, int(n**0.5) + 1) if n % i == 0))
+    factors = np.concatenate( [factors, list(reversed(factors))])
+    factors = [(factors[i], factors[i+1]) for i in range(0, len(factors), 2)]
+    return factors
+
+
+def _batch_size(n, target_size):
+    if n < target_size: return 1
+    return int(np.round(n/target_size))
+
+def get_optimal_parallel(shape, threads_per_node, target_size=150, max_nodes=30):
+
+    n_glob, m_glob = shape
+    t_glob = n_glob*m_glob
+    n_batch = _batch_size(n_glob, target_size)
+    m_batch = _batch_size(m_glob, target_size)
+    
+    t_batch = n_batch*m_batch
+
+    t_nodes = _batch_size(t_batch, threads_per_node)
+
+    if t_nodes > max_nodes: t_nodes = max_nodes
+
+    t_threads = t_nodes*threads_per_node
+
+    factors = compute_factors(t_threads)
+
+    ratios = [(n_glob/py)/(m_glob/px) for px, py in factors]
+    ratios = np.array([r if r > 1 else 1/r for r in ratios])
+    
+    i = np.argmin(ratios-1)
+
+    px, py = factors[i]
+
+    return t_nodes, py, px
