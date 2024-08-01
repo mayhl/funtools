@@ -9,6 +9,23 @@ import warnings
 # num - file number as integer 
 # m - Mglob, number of x grid points
 
+
+def load_data(dpath, fname, n, m):
+    fpath = os.path.join(dpath, fname)
+    data = np.fromfile(fpath, dtype='<f8')
+    return data.reshape([n,m])
+
+def load_data_step(dpath, base_fname, step_num, n, m):
+    fname = "%s_%05d" % (base_fname, step_num)
+    return load_data(dpath, fname, n, m)
+
+def load_data_1d(dpath, fname, m):
+    return load_data(dpath, fname, 3, m)[1,:]
+
+def load_data_step_1d(dpath, fname, step, m):
+    return load_data_step(dpath, fname, step, 3, m)[1,:]
+
+    
     
 def process_field_output(dpath):
     
