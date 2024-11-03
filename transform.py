@@ -64,6 +64,10 @@ def transform_poly(poly, transform):
     polys = [poly] if ptype is Polygon else poly.geoms
     polys = [_transform_poly(p, transform) for p in polys]
 
+    polys = [p for p in polys if p.is_valid]
+    
+    #print([t.is_valid for t in polys])
+    
     return shapely.union_all(polys)
 
 
