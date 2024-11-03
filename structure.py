@@ -116,42 +116,41 @@ class _Structure(ABC):
         dv0 = compute_volume_diff(z_min)
         
 
-        if dv0 < 0:
-            
-            dv1 = dv0
-            dh = 0.05
-            while dv1 < 0:
-                dv0 = dv1
-                self._height_sl += dh
-                dv1 = compute_volume_diff(z_min)
+        step_sign = 1 if dv0 < 0 else -1    
+        dh = 0.05
+        dv1 = dv0
+        while dv1 < 0:
+            dv0 = dv1
+            self._height_sl += step_sign*dh
+            dv1 = compute_volume_diff(z_min)
    
-            h1 = self._height_sl
-            h0 = h1 - dh
+        h1 = self._height_sl
+        h0 = h1 - dh
     
-            while np.abs(h1-h0)>tolerance:
+        while np.abs(h1-h0)>tolerance:
             
-                hc = (h1 + h0)/2
-                self._height_sl = hc
-                dvc = compute_volume_diff(z_min)           
-                
-                if dvc < 0:
-                    h0 = hc
-                else:
-                    h1 = hc
-                
-                
-            sx, sy = self._bounding_box(x, y, z, z_min)
-            subx, suby = np.meshgrid(x[sx], y[sy])
-            subz = z[sy, sx]
-            sub_shape = subz.shape
-            subx, suby, subz = (s.flatten() for s in[subx, suby, subz])
-            subu, subv = self._transform_2_local_coords(subx, suby)
+            hc = (h1 + h0)/2
+            self._height_sl = hc
+            dvc = compute_volume_diff(z_min)           
+
+
+
+            h0, h1 = (hc, h1) if dvc < 0 else (h0, hc)
+   
+            #(h0 = hc) if dvc < 0 else (h1 = hc)
+            #if dvc < 0:
+            #    h0 = hc
+            #else:
+            #    h1 = hc
+                    
+        sx, sy = self._bounding_box(x, y, z, z_min)
+        subx, suby = np.meshgrid(x[sx], y[sy])
+        subz = z[sy, sx]
+        sub_shape = subz.shape
+        subx, suby, subz = (s.flatten() for s in[subx, suby, subz])
+        subu, subv = self._transform_2_local_coords(subx, suby)
   
-            new_subz = self._update_subgrid(subu, subv, subz, z_min, sub_shape)
-            
-        else:
-            raise NotImplementedError()
-        
+        new_subz = self._update_subgrid(subu, subv, subz, z_min, sub_shape)
         
         return sx, sy, new_subz             
         
@@ -194,7 +193,7 @@ class _Structure(ABC):
         
             if dz < tolerance: break     
                 
-        new_subz = self._update_subgrid(subu, subv, subz, z_min, z_shape)
+        new_subz = self._update_subgrid(subu, subv, subz, z_min, sub_shape)
         
         return sx, sy, new_subz       
     
@@ -403,8 +402,12 @@ class RectangularPrism(_Prism):
     
     def _construct_crossection_local(self, u, z_min): 
         return np.ones(np.shape(u))*self._height_sl
-    
-        
+
+    def _estimate_crosssection_area(self, z_min):
+        h = self._height_sl - z_min
+        b = self._width
+        return b*h
+
 class _Corner(_DirectionalStructure):
     
     # Partially defining function

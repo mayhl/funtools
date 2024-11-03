@@ -86,6 +86,9 @@ class Datum:
         self._renderer_poly = None
         self._renderer_xyz = None
 
+        self.poly_plot_kwargs = None
+        self.xyz_plot_kwargs = None
+
     @property
     def _smaps(self):
         return [
@@ -259,7 +262,12 @@ class Datum:
             self._init_figure(fig, **fig_kwargs)
 
         args = (self.fig, self.xyz)
-        plt_kwargs = dict(color=color)
+
+        if self.xyz_plot_kwargs is None: 
+            plt_kwargs = dict(color=color)
+        else:
+            plt_kwargs = self.xyz_plot_kwargs 
+            
         self._renderer_xyz = qbokeh.plot_scatter(*args, **plt_kwargs)
 
     def create_xyz_cmap_plot(self, fig=None, **fig_kwargs):
@@ -288,6 +296,7 @@ class Datum:
         qbokeh.show(self._container, **kwargs)
 
     def _plot(self, plot_func, fig_kwargs={}, plt_kwargs={}, **kwargs):
+        
         show_kwargs = qbokeh.pop_show_kwargs(kwargs)
 
         if len(kwargs) > 0:

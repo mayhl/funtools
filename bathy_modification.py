@@ -132,11 +132,15 @@ def get_ramp_coeffs(n):
     
 def get_extend_domain(s, ds, n, mode):
 
-    if mode == 'stop':
-        return np.arange(n)*ds + s.max()
+    s_ext = np.arange(1, n+1)*ds
+
+    if mode == 'stop': 
+        return  -np.flipud(s_ext)+ s.min()
         
-    if mode == 'start':
-        return np.arange(-n+1, 0)*ds + s.min()
+    if mode == 'start':  
+        return s_ext + s.max()
+
+   
     raise Exception("Invalid mode '%s'." % mode)
 
 def slices_by_axis_index(i, axis, n):

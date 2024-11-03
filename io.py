@@ -161,7 +161,7 @@ def create_input_file(fpath, params):
         'Wave Maker': ['WAVEMAKER', 'WAVE_DATA_TYPE', 'DEP_WK', 'Xc_WK', 'Yc_WK',
                        'FreqPeak', 'FreqMin', 'FreqMax', 'Hmo',
                        'GammaTMA', 'Sigma_Theta','Delta_WK',
-                        'EqualEnergy', 'Nfreq', 'Ntheta','alpha_c'],
+                        'EqualEnergy', 'Nfreq', 'Ntheta','alpha_c', 'Tperiod', 'AMP_WK'],
         'Boundary Conditions': ['PERIODIC', 'DIFFUSION_SPONGE', 'FRICTION_SPONGE',
                                 'DIRECT_SPONGE', 'Csp', 'CDsponge', 'Sponge_west_width',
                                 'Sponge_east_width', 'Sponge_south_width',
