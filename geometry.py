@@ -17,11 +17,12 @@ def distance_grid_to_curve(x, y, xc, yc, p=100, n_procs=1):
     
     shp = (len(y), len(x))
     
-    ds= np.zeros(shp)
+    ds= np.zeros(shp)-10
     
-    (sxs, sys), n_batches = compute_equislices(ds, p)
+    (sys, sxs), n_batches = compute_equislices(ds, p)
     slices = [(sy, sx) for sx in sxs for sy in sys]
-    
+
+    print(slices)
     args = [(x[sx], y[sy], kdtree) for sy, sx in slices]
     rtn_vals = sparallel(_distance_grid_to_curve, n_procs, args, p_desc='Distances')
     
@@ -38,7 +39,25 @@ def distance_grid_to_curve(x, y, xc, yc, p=100, n_procs=1):
 def _distance_grid_to_curve(x, y, kdtree):
     shp = (len(y), len(x))
     pts = np.vstack([ss.flatten() for ss in np.meshgrid(x,y)]).T
+
+
     nearest_dist, nearest_ind = kdtree.query(pts, k=1)
+
+   # n, k = nearest_dists.shape
+
+    # nearest_dist = np.zeros(n)
+    # nearest_ind = np.zeros(n)
+
+    # for i in range(n):
+    #     for j in range(k):
+    #         if nearest_dists[i,j] > 0:
+    #             nearest_dist[i]=nearest_dists[i,j]
+    #             nearest_ind[i]=nearest_inds[i,j]
+    #             break
+
+    
+    
+    
     #nearest_x, nearest_y = zip(*(kdtree.data[nearest_ind]))
     return tuple(np.reshape(s, shp) for s in [nearest_dist, nearest_ind])
     

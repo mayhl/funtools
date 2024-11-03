@@ -410,6 +410,66 @@ class UnstructuredGrid:
 
 
 
-        
 
+def linspace(s0, s1, n, mode='centered'):
+
+    mmap = {
+        'centered': (False, lambda dx: dx/2),
+        'left'    : (False, lambda dx: 0   ),
+        'right'   : (False, lambda dx: dx  ),
+        'border'  : (True , lambda dx: 0   )
+    }
+
+    e, o = mmap[mode]
+    o = o((s1-s0)/n)
+    return np.linspace(s0+o, s1+o, n, endpoint=e) 
+
+def linspace2d(x0, x1, nx, y0, y1, ny, mode='centered'):
+    x = linspace(x0, x1, nx, mode)
+    y = linspace(y0, y1, ny, mode)
+    return x , y
+    
+ 
+
+# Generated linear space for some given spacing centered on some range
+def nearest_linspace(s0, s1, ds, mode='centered'):
+    
+    l = s1-s0
+    print( "l: %f" % l)
+    print(ds)
+    n = int(np.floor(l/ds))
+    if n < 1: n = 1
+
+    mmap = {
+        'centered': (False, lambda dx: dx/2),
+        'left'    : (False, lambda dx: 0   ),
+        'right'   : (False, lambda dx: dx  ),
+        'border'  : (True , lambda dx: 0   )
+    }
+
+    # Centering grid on domain
+
+    e, o = mmap[mode]
+    o = o(ds) + (l-n*ds)/2
+    print("o: %f" % o)
+    print(s0, s1)
+    print(n)
+    return np.linspace(s0+o, s1+o, n, endpoint=e) 
+
+
+def nearest_linspace2d(x0, x1, dx, y0, y1, dy, mode='centered'):
+    x = nearest_linspace(x0, x1, dx, mode)
+    y = nearest_linspace(y0, y1, dy, mode)
+    return x , y
+    
+
+def flat_meshgrid(*args, **kwargs):
+    aargs = np.meshgrid(*args, **kwargs)
+    shp = aargs[0].shape
+    aargs = (ss.flatten() for ss in aargs)
+    return aargs, shp
+
+
+
+    
 
