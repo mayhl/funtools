@@ -1,8 +1,7 @@
 [tool.poetry]
-name = "2024sacojetty"
-package-mode=false
-version = "0.1.1"
-description = "Pre/Post processing code for SACO Jetty Project 2024"
+name = "funtools"
+version = "0.1.0"
+description = "Pre/Post processing code for FUNWAVE simulations"
 authors = [
    "Michael-Angelo Y.-H. Lam <michael.y.lam@erdc.dren.mil>",
    "Marissa  J. Torres <Marissa.J.Torres@erdc.dren.mil>",
@@ -13,14 +12,14 @@ maintainers = [
 keywords = ["funwave-tvd"]
 license = "BSD-2-Clause"
 readme = "README.md"
-packages = [{include = "funtools", from=".."}]
+packages = [{include = "funtools", from="src"}]
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.5.2"
 
 [project.urls]
 #documentation = "https://mayhl.github.io/FUNWAVE-TVD-Python-Tools/"
-repository = "https://git.erdc.dren.mil/funwave/2024_saco_jetty"
+repository = "https://git.erdc.dren.mil/funwave/funtools"
 
 [tool.poetry.dependencies]
 python = "^3.10.4"
