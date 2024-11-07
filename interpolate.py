@@ -2,7 +2,7 @@ from funtools.parallel import simple as sparallel
 from funtools.subgrid import compute_equislices
 from scipy.interpolate import LinearNDInterpolator    
 from scipy.interpolate import CloughTocher2DInterpolator
-
+from scipy.interpolate import NearestNDInterpolator
 
 import numpy as np
 
@@ -10,7 +10,8 @@ import numpy as np
 def interpolate2d(xi, yi, data, target_size=200, mode='linear', n_procs=1):
 
     imap = {"linear": LinearNDInterpolator,
-            "clough": CloughTocher2DInterpolator}
+            "clough": CloughTocher2DInterpolator,
+            "nearest": NearestNDInterpolator}
 
     assert mode in imap, "Unknown interpolation mode."
     interpolator = imap[mode]
