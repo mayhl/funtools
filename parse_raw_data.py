@@ -81,3 +81,28 @@ def read_geotiff(fpath, factor=1):
     print(crs, fpath)
     crs = CRS.from_epsg(crs) #img.read_crs().to_epsg())
     return data, crs, {"mask": mask}
+
+
+def read_ww3_mesh(fpath, crs_info):
+    skiprows = 4
+    with open(fpath, 'r') as fh:
+        for i in range(skiprows): fh.readline()
+        n = int(fh.readline())
+
+
+    data = np.loadtxt(fpath, skiprows=skiprows+1, max_rows=n)[:,1:]
+
+    x = data[:,0]
+    y = data[:,1]
+
+    # Hacky patch for now
+    import pyproj
+
+    myproj = pyproj.Proj(crs_info)
+
+    x, y = myproj(x ,y)
+
+    data[:,0]=x
+    data[:,1]=y
+
+    return data, crs_info, {}

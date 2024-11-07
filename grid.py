@@ -193,7 +193,6 @@ class SourceGrids:
 
     def filter_xyz_in_poly(self, key, n_procs=1):
         for k, d in self._data.items(): 
-            #print(k)
             d.filter_xyz_in_poly(key, n_procs=n_procs)
 
     
@@ -340,6 +339,7 @@ class UnstructuredGrid:
             "csv": read_csv,
             "table": read_pandas_csv,
             "geotiff": read_geotiff,
+            "ww3": read_ww3_mesh,
         }
 
         assert method in pmap.keys(), "Unknown read method '%s'." % method
@@ -435,8 +435,6 @@ def linspace2d(x0, x1, nx, y0, y1, ny, mode='centered'):
 def nearest_linspace(s0, s1, ds, mode='centered'):
     
     l = s1-s0
-    print( "l: %f" % l)
-    print(ds)
     n = int(np.floor(l/ds))
     if n < 1: n = 1
 
@@ -451,9 +449,6 @@ def nearest_linspace(s0, s1, ds, mode='centered'):
 
     e, o = mmap[mode]
     o = o(ds) + (l-n*ds)/2
-    print("o: %f" % o)
-    print(s0, s1)
-    print(n)
     return np.linspace(s0+o, s1+o, n, endpoint=e) 
 
 
