@@ -32,10 +32,11 @@ class XYZImageService(xyzservices.lib.TileProvider):
 
         if not isinstance(obj, xyzservices.lib.TileProvider):
             raise Exception('Object is not an instance of xyzservices.lib.TileProvider.')
-            
+
+ 
         obj.__class__ = XYZImageService
         
-        if not obj.requires_token():
+        if obj.requires_token():
             
             if access_token is None:
                 raise Exception("Tile provider '%s' requires an access token, none provided." % obj.name)
@@ -47,6 +48,7 @@ class XYZImageService(xyzservices.lib.TileProvider):
         obj._tiles_dpath = Path(tiles_dpath) / provider_dname
         obj._tiles_dpath.mkdir(parents=True, exist_ok=True)
         obj._zoom = None
+    
 
     def _set_and_validate_zoom(self, zoom):
         
@@ -123,12 +125,11 @@ class XYZImageService(xyzservices.lib.TileProvider):
     # mathematical grid standard 
     def _convert_type(self, img, bounds, mode):
 
-        x0, y0, x1, y1 = bounds
         
         if mode == 'img': 
-            extent = (x0, x1, y0, y1)
-            return img, extent
+            return img, bounds
 
+        x0, y0, x1, y1 = bounds
         img = np.flipud(img)
         ny, nx = img.shape
         x, y = fgrid.linspace2d(x0, x1, nx, y0, y1, ny, mode)
@@ -139,6 +140,7 @@ class XYZImageService(xyzservices.lib.TileProvider):
     def _get_image(self, x0, y0, x1, y1):
 
         info_files = self._get_paths_info(x0, y0, x1, y1)
+
         new_files = [x for *x, is_file in info_files if not is_file]
     
         if len(new_files) > 0: 
@@ -198,6 +200,7 @@ class GeoImageService(XYZImageService):
         obj.__class__ = GeoImageService
         obj._bounds = None
         obj._pixels = pixels 
+        
 
     def _validate_resolution(self, resolution):
         
@@ -219,7 +222,7 @@ class GeoImageService(XYZImageService):
     # from image generation 
     def get_image(self, lon_lower, lat_lower, lon_upper, lat_upper, resolution, mode='img'):
         self._validate_resolution(resolution)
-        bounds, mode = self._get_image(lon_lower, lat_lower, lon_upper, lat_upper)
+        img, bounds = self._get_image(lon_lower, lat_lower, lon_upper, lat_upper)
         return self._convert_type(img, bounds, mode)
         
     def _get_image(self, lon_lower, lat_lower, lon_upper, lat_upper):
@@ -229,49 +232,78 @@ class GeoImageService(XYZImageService):
         x0, y0 = self._geo2slippy(lon_lower, lat_upper)
         x1, y1 = self._geo2slippy(lon_upper, lat_lower)
 
+        # print(x0, y0)
+        # print(x1, y1)
+        # x0, y0 = self._geo2slippy(lon_lower, lat_lower)
+        # x1, y1 = self._geo2slippy(lon_upper, lat_upper)
+
+        # print(x0, y0)
+        # print(x1, y1)
+
         # NOTE: Same y swap
-        lon_lower, lat_lower = self._slippy2geocorner(x0, y1, is_upper=False)
-        lon_upper, lat_upper = self._slippy2geocorner(x1, y0, is_upper=True)
+        lon_lower, lat_upper = self._slippy2geocorner(x0, y0, is_lower=False)
+        lon_upper, lat_lower = self._slippy2geocorner(x1, y1, is_lower=True)
 
         geo_bounds = lon_lower, lat_lower, lon_upper, lat_upper
 
-        print(y1-y0, x1-x0)
         img = super()._get_image(x0, y0, x1, y1)
-        
+       
+        def pprint(x, y): print(y, x)
+
+
+
         return img, geo_bounds      
 
     def _geo2slippy(self, lon, lat):
+
+        n = 2**self._zoom
+
+        x = int(np.floor(n*(lon+180)/360))
+        rlat = np.deg2rad(lat)
+        y = np.log(np.tan(rlat) + 1/np.cos(rlat))/np.pi
+        y = int(np.floor(n*(1-y)/2))
+
+        # lon, lat = (np.deg2rad(s) for s in [lon, lat])
+        # x = lon 
+        # y = np.arcsinh(np.tan(lat))
     
-        lon, lat = (np.deg2rad(s) for s in [lon, lat])
-        x = lon 
-        y = np.arcsinh(np.tan(lat))
+        # x = (1+x/np.pi)/2
+        # y = (1-y/np.pi)/2
     
-        x = (1+x/np.pi)/2
-        y = (1-y/np.pi)/2
-    
-        scale = lambda x: int(np.floor(2**self.zoom*x))
-        x, y = (scale(s) for s in (x,y))
+        # scale = lambda x: int(np.floor(2**self.zoom*x))
+        # x, y = (scale(s) for s in (x,y))
         return x, y
     
     # Funtion to get Geographic coordinates of the lower left corner 
     # or upper right corner of a Slippy Tile 
-    def _slippy2geocorner(self, x, y, is_upper=False):
-    
-        scale = 2**self.zoom
-    
-        if is_upper:
+
+
+
+    def _slippy2geocorner(self, x, y, is_lower=False):
+
+        if is_lower:
             x += 1
-        else:
             y += 1
+        
+        n = 2**self.zoom
+        lon = x / n * 360.0 - 180.0
+        lat = np.rad2deg(np.arctan(np.sinh(np.pi * (1 - 2 * y / n))))
+
+        return lon, lat 
+
+   
+
+
+
     
-        x = np.pi*(2*x/scale - 1)
-        y = np.pi*(1 - 2*y/scale)
+        # x = np.pi*(2*x/scale - 1)
+        # y = np.pi*(1 - 2*y/scale)
     
-        lon = x
-        lat = np.arctan(np.sinh(y))
+        # lon = x
+        # lat = np.arctan(np.sinh(y))
     
-        ds = 360/scale
-        lon, lat = (np.rad2deg(s) for s in (lon ,lat))
+        # ds = 360/scale
+        # lon, lat = (np.rad2deg(s) for s in (lon ,lat))
     
         return lon, lat
         
@@ -290,6 +322,7 @@ class PyProjGeoService(GeoImageService):
         obj._bounds = None
         crs = pyproj.CRS.from_epsg(epsg)
         obj._proj = pyproj.Proj(crs)
+        
 
 
     # Method transforming/projecting the coordinates of a rectilinear rectangle 
@@ -336,7 +369,6 @@ class PyProjGeoService(GeoImageService):
         
         scales = [self._EARTH_RADIUS_*np.abs(np.cos(np.deg2rad(a)))/self._pixels for a in [lat_lower, lat_upper]]
 
-        print(scales)
         res2zoom = lambda x: int(np.ceil(np.log2(x/resolution)))
         zoom = np.max([res2zoom(a) for a in scales])
         check = self._set_and_validate_zoom(zoom)
@@ -372,16 +404,22 @@ class PyProjGeoService(GeoImageService):
         bounds = x_lower, y_lower, x_upper, y_upper
         proj = lambda x, y: self._proj(x, y, inverse=True)
         bounds_geo = self.__class__.proj_bounds(bounds, proj)
+
         img, new_bounds_geo = super()._get_image(*bounds_geo)
         
 
         # Getting rectilinear bounding box in transformed coordinates contained in Geographic domain
         proj = lambda x, y: self._proj(x, y)
         new_bounds = self.__class__.proj_bounds(new_bounds_geo, proj, is_inner=True)
-
+        new_bounds = bounds
         # Generating rectilinear grid in transformed coordinates than projecting to
         # Geographic coordinates for interpolation 
+
+   
         x0, y0, x1, y1 = new_bounds
+
+        #x0, y0, x1, y1 = x_lower, y_lower, x_upper, y_upper
+
         x, y = fgrid.nearest_linspace2d(x0, x1, ds, y0, y1, ds)
         (xx, yy), shp = fgrid.flat_meshgrid(x, y)
         lon_i, lat_i = self._proj(xx, yy, inverse=True)
@@ -391,46 +429,13 @@ class PyProjGeoService(GeoImageService):
         ny, nx, n_channels = img.shape
 
     
-        geo_grid = lons, lats = fgrid.linspace2d(lon_0, lon_1, nx, lat_0, lat_1, ny)
+        lons, lats = fgrid.linspace2d(lon_0, lon_1, nx, lat_0, lat_1, ny)
 
-
-        geo_grid_i = np.vstack([lat_i, lon_i]).T
-
+        lats = np.flipud(lats)
         img_new = np.zeros(shp + (n_channels,), dtype=img.dtype)
     
         for i in range(n_channels):
             interp = RegularGridInterpolator((lats, lons), img[:,:,i])
-            img_new[:, :, i] = interp(geo_grid_i).reshape(shp)
-
-
-
+            img_new[:, :, i] = np.flipud(interp((lat_i, lon_i)).reshape(shp))
 
         return img_new, new_bounds
-        # print(lon_i)
-        # print(lons)     
-        # print(lat_i)
-        # print(lats)
-        
-        # n = len(xx)
-        # geo_pts_i = np.zeros([n,2])
-
-        # for i in range(n):
-        #     geo_pts_i[i,1], geo_pts_i[i,0] = self._proj(xx[i], yy[i], inverse=True)
-     
-        # geo_pts = (lons, lats)
- 
-        # img_new = np.zeros(shp_new)
-
-        # for i in range(n_channels):
-
-        #     interp = RegularGridInterpolator(geo_pts, img[:,:,i])
-
-        #     x, y = geo_pts_i[0,0], geo_pts_i[0,1]
-  
-        #     interp((x, y)).shape
-
-
-
-
-
-

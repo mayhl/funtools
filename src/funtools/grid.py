@@ -170,6 +170,7 @@ class SourceGrids:
         for (k, g), c in items[1:]: g._data[key].create_plot(fig=d.fig, color=c, **plt_kwargs, label=k)
 
         if len(d.fig.legend) > 0:
+            pass
             d.fig.legend.location = "center"
             d.fig.add_layout(d.fig.legend[0], 'below')
 
@@ -428,8 +429,26 @@ def linspace2d(x0, x1, nx, y0, y1, ny, mode='centered'):
     x = linspace(x0, x1, nx, mode)
     y = linspace(y0, y1, ny, mode)
     return x , y
-    
- 
+
+
+
+def rectilinear(n, ds, s0=0, mode='centered'):
+    mmap = {
+        'centered': (0, 1/2),
+        'left'    : (0, 0  ),
+        'right'   : (0, 1  ),
+        'border'  : (1, 0  )
+    }
+    ep, o = mmap[mode]
+    return (np.arange(n+ep) + o)*ds + s0
+
+def rectilinear2d(nx, dx, ny, dy, x0=0, y0=0, mode='centered'):
+    x = rectilinear(nx, dx, x0, mode)
+    y = rectilinear(ny, dy, y0, mode)
+    return x , y
+
+
+
 
 # Generated linear space for some given spacing centered on some range
 def nearest_linspace(s0, s1, ds, mode='centered'):

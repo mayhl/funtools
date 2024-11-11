@@ -244,7 +244,7 @@ class Datum:
         args = (self.fig, self.poly)
         
         plt_kwargs = dict(color=color, line_width=2)
-        if label is None: 
+        if  True: #label is None: 
             self._renderer_poly = qbokeh.plot_poly(*args, **plt_kwargs)
         else:
 

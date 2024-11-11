@@ -1,7 +1,11 @@
 from funtools.error import *
 from funtools.misc import pop_dict_keys, pop_dict_key
 
+
+
 import numpy as np
+
+import bokeh 
 from bokeh.palettes import all_palettes
 
 from shapely.geometry import Polygon, MultiPolygon, Point, GeometryCollection
@@ -96,7 +100,8 @@ def quick_palette(var):
         n = 3
 
     if n > 20:
-        raise Exception("Only a maximum of 20 palettes allowed.")
+        return bokeh.palettes.turbo(n)
+       # raise Exception("Only a maximum of 20 palettes allowed.")
 
     if n <= 10:
         return all_palettes["Category10"][n]
@@ -115,6 +120,8 @@ def _plot_poly(fig, poly, legend_label=None, **plt_kwargs):
         xs="xs", ys="ys", source=src, **plt_kwargs
     )  # , color=color, alpha=alpha)
 
+
+    return r
     if legend_label is None:
         return r
 
