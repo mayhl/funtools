@@ -202,21 +202,24 @@ class SourceGrids:
         for i, ri in enumerate(ranks):
             if not ri in self._data: continue
             pi = self._data[ri].data[key].poly
-            
             for rj in ranks[i+1:]:
                 if not rj in self._data: continue
                 
+      
                 pj = self._data[rj].data[key].poly
                 pj = pj.difference(pi)
+       
+
        
                 if isinstance(pj, GeometryCollection):
                     tpolys = [s for s in pj.geoms if type(s) in [Polygon, MultiPolygon]]
                     pj = MultiPolygon(tpolys)
-    
+
                 self._data[rj].data[key].poly =pj
 
-        dkeys = [k for k in self._data.keys() if self._data[k].data[key].poly.area <= 1]
-        for k in dkeys: del self._data[k]
+
+        #dkeys = [k for k in self._data.keys() if self._data[k].data[key].poly.area <= 1]
+        #for k in dkeys: del self._data[k]
     
 
 class UnstructuredGrid:

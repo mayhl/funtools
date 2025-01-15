@@ -27,6 +27,8 @@ class _Spectrum(param.Parameterized):
     theta_peak = param.Number(0)
     
 
+    _GRAVITY_ = param.Number(9.81, readonly=True)
+
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -217,15 +219,81 @@ class _Spectrum(param.Parameterized):
             
             self._disc_energy = spec_2d
 
-
-    
-    def freq_crit(self, kh):
-
-            g = 9.81
+    def k_crit(self, kh=np.pi):
             h = self.depth
             k = kh/h
+            return k
+    def length_crit(self, kh=np.pi):
+        k = self.k_crit(kh)
+        return 2*np.pi/k
+
+    def freq_crit(self, kh=np.pi):
+            g = self._GRAVITY_
+            k = self.k_crit(kh)
             w = np.sqrt(g*k*np.tanh(kh))
             return w/(2*np.pi)
+
+    def period_crit(self,  kh=np.pi):
+        return 1/self.freq_crit(kh)
+
+
+    def _solve_dispersion(self, freq):
+
+        w = 2*np.pi*freq
+        h = self.depth
+        g = self._GRAVITY_
+     
+        k = np.sqrt(1/(g*h))*w
+
+        for i in range(10):
+
+            tanhkh = np.tanh(k*h)    
+            f = g*k*tanhkh - w**2
+            df = g*tanhkh - g*k*(1-tanhkh*tanhkh)
+
+            cor = -f/df
+            k += cor
+
+            if np.abs(cor) < 10**-6: break
+
+        return k
+
+    def _get_wave_info(self, freq):
+        
+        k_max = self._solve_dispersion(freq)
+        length_max = 2*np.pi/k_max
+        period_max = 1/freq
+        return k_max, length_max, period_max 
+
+    @param.depends('freq_max', watch=True)
+    def _update_max_wave_info(self):
+        self._k_max, self._length_max, self._period_max = self._get_wave_info(self.freq_max)
+
+    @param.depends('freq_min', watch=True)
+    def _update_min_wave_info(self):
+        self._k_min, self._length_min, self._period_min = self._get_wave_info(self.freq_min)
+
+    @param.depends('freq_peak', watch=True)
+    def _update_peak_wave_info(self):
+        self._k_peak, self._length_peak, self._period_peak = self._get_wave_info(self.freq_peak)
+
+    @param.depends('depth', watch=True)  
+    def _update_all_wave_info(self):
+        self._update_max_wave_info()
+        self._update_min_wave_info()
+        self._update_peak_wave_info()
+
+    def k_max(self): return self._k_max
+    def k_min(self): return self._k_min
+    def k_peak(self): return self._k_peak
+    
+    def length_max(self): return self._length_max
+    def length_min(self): return self._length_min
+    def length_peak(self): return self._length_peak
+
+    def period_max(self): return self._period_max
+    def period_min(self): return self._period_min
+    def period_peak(self): return self._period_peak
 
 
     @property

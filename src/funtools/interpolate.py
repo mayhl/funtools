@@ -7,7 +7,7 @@ from scipy.interpolate import NearestNDInterpolator
 import numpy as np
 
 
-def interpolate2d(xi, yi, data, target_size=200, mode='linear', n_procs=1):
+def interpolate2d(xi, yi, data, target_size=200, mode='linear', n_procs=1, **kwargs):
 
     imap = {"linear": LinearNDInterpolator,
             "clough": CloughTocher2DInterpolator,
@@ -42,14 +42,20 @@ def interpolate2d(xi, yi, data, target_size=200, mode='linear', n_procs=1):
     return zi
 
 def _interpolate(x, i, y, j, data, interpolator):
-    xx, yy = np.meshgrid(x,y)
     
-    xs = data[:,0]
-    ys = data[:,1]
-    zs = data[:,2]
+    xx, yy = np.meshgrid(x,y)
+    if data.size < 100:
 
-    interp = interpolator(list(zip(xs, ys)), zs)
-    zz = interp(xx, yy)
+        zz = np.full(xx.shape, np.nan)
+    else:
+
+        #print(data.size)
+        xs = data[:,0]
+        ys = data[:,1]
+        zs = data[:,2]
+
+        interp = interpolator(list(zip(xs, ys)), zs)
+        zz = interp(xx, yy)
 
     return i, j, zz
     

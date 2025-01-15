@@ -81,6 +81,19 @@ def parse_str(val):
         # Case should not be possible 
         raise Exception('Unexpected State')
         
+
+def _set_defaults_inputs(params):
+
+    _DEFAULTS_ = dict(
+        RESULT_FOLDER = 'output'
+    )
+
+    for key, value in _DEFAULTS_.items():
+        if not key in params:
+            params[key] = value
+
+    return params
+
 def read_input_file(fpath):
     """
     Convert FUNWAVE input/driver file to dictionary
@@ -117,7 +130,8 @@ def read_input_file(fpath):
         
         params[name] = parse_str(val_str)
 
-    return params                 
+    
+    return _set_defaults_inputs(params)                 
 
 
 def _get_banner(title, indent = 10, max_length = 80):
@@ -161,18 +175,19 @@ def create_input_file(fpath, params):
         'Wave Maker': ['WAVEMAKER', 'WAVE_DATA_TYPE', 'DEP_WK', 'Xc_WK', 'Yc_WK',
                        'FreqPeak', 'FreqMin', 'FreqMax', 'Hmo',
                        'GammaTMA', 'Sigma_Theta','Delta_WK',
-                        'EqualEnergy', 'Nfreq', 'Ntheta','alpha_c', 'Tperiod', 'AMP_WK'],
+                        'EqualEnergy', 'Nfreq', 'Ntheta','alpha_c', 'Tperiod', 'AMP_WK', 'ThetaPeak'],
         'Boundary Conditions': ['PERIODIC', 'DIFFUSION_SPONGE', 'FRICTION_SPONGE',
                                 'DIRECT_SPONGE', 'Csp', 'CDsponge', 'Sponge_west_width',
                                 'Sponge_east_width', 'Sponge_south_width',
-                                'Sponge_north_width'],
-        'Tidal Boundary Forcing': ['TIDAL_BC_GEN_ABS' ,'TideBcType', 'TideWest_ETA'],
+                                'Sponge_north_width', 'R_sponge', 'A_sponge'],
+        'Tidal Boundary Forcing': ['TIDAL_BC_GEN_ABS' ,'TideBcType', 'TideWest_ETA', 'TIDAL_BC_ABS', 
+                                   'TideWestFileName'],
         'Numerics': ['Gamma1', 'Gamma2', 'Gamma3', 'Beta_ref',
                      'HIGH_ORDER', 'CONSTRUCTION', 'CFL', 'FroudeCap', 
-                     'MinDepth', 'MinDepthFrc'],
+                     'MinDepth', 'MinDepthFrc', 'Time_Scheme'],
         'Breaking': ['DISPERSION', 'SWE_ETA_DEP', 'SHOW_BREAKING',
                      'VISCOSITY_BREAKING', 'Cbrk1', 'Cbrk2', 'WAVEMAKER_Cbrk'],
-        'Friction' : ['Friction_Matrix', 'Cd'],
+        'Friction' : ['Friction_Matrix', 'Cd', 'Cd_file'],
         'Mixing': ['STEADY_TIME', 'T_INTV_mean', 'C_smg'],
         'Stations': ['NumberStations', 'STATIONS_FILE', 'PLOT_INTV_STATION'],
         'Output': ['FIELD_IO_TYPE', 'DEPTH_OUT', 'U', 'V', 'ETA', 'Hmax',

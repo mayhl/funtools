@@ -50,20 +50,46 @@ def solve_dispersion(w=None, h=None, k=None, tolerance=10**-8, max_iterations=10
         
         
         
-def compute_spectra(eta, dt, t=None, n_overlap=1024, nfft=2048):
+def compute_spectra(eta, dt, t=None, n_overlap=1024, nfft=2048*10, tlim=None):
     
+
+    #print(dt)
     fs = 1.0/dt
-    
+    #print(fs)
     
     if not t is None:
+        t = np.arange(len(eta))*dt
+
+    if tlim is None:
+
         t0, t1 = t.min(), t.max()
-        ti = np.arange(t0, t1+dt/2, dt)  
-        eta = np.interp(ti, t, eta)
+    else: 
+        t0, t1 = tlim
 
+
+    n = int(np.round((t1-t0)/dt))
+
+    nfft = n//4
+
+    ti = np.arange(0, n+1)*dt + t0  
+
+
+    eta_i = np.interp(ti, t, eta)
+
+
+
+    #print(len(eta_i), len(ti))
+    #print(eta_i.mean())
+    #eta_i -= eta_i.mean()
     
-    window = np.bartlett(nfft)
-    f, spec_den = sig.welch(x=eta, fs=fs, window=window, nperseg=nfft,noverlap=n_overlap, nfft=nfft, scaling='density')
+    #window = np.bartlett(nfft)
+    f, spec_den = sig.welch(eta_i, fs=fs, nperseg=nfft, scaling='density')
 
+    print('----------')
+    print(f[0], f[-1])
+    print(len(eta_i), len(ti))
+    print(len(f))
+    print('----------')
     df = f[1]-f[0]
     e_tot = np.sum(spec_den*df)
     Hrms = np.sqrt(e_tot*8)

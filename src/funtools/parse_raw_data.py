@@ -77,9 +77,11 @@ def read_geotiff(fpath, factor=1):
     data = np.vstack([s.flatten() for s in data]).T[idxs.flatten(), :]
 
     # Converting rasterio CRS class to pyproj CRS class
-    crs = img.read_crs().to_epsg()
-    print(crs, fpath)
-    crs = CRS.from_epsg(crs) #img.read_crs().to_epsg())
+    crs = img.read_crs()#.to_epsg()
+
+    #if not crs is None:
+    #    crs = CRS.from_epsg(crs) #img.read_crs().to_epsg())
+
     return data, crs, {"mask": mask}
 
 

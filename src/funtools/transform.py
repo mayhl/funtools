@@ -11,6 +11,7 @@ class Transformer():
 
     def __init__(self, src_crs):
 
+        #if not src_crs is None:
         self._proj_src = pyproj.Proj(src_crs)
         self._proj_trg = None
 
@@ -57,6 +58,8 @@ def _transform_line(line, transform):
 
 def transform_poly(poly, transform):
 
+
+
     ptype = type(poly)
     # Hacking working around for lines 
     if ptype in [LineString, MultiLineString]: 
@@ -65,7 +68,7 @@ def transform_poly(poly, transform):
     polys = [poly] if ptype is Polygon else poly.geoms
     polys = [_transform_poly(p, transform) for p in polys]
 
-    polys = [p for p in polys if p.is_valid]
+    #polys = [p for p in polys if p.is_valid]
     
     #print([t.is_valid for t in polys])
     
