@@ -85,11 +85,6 @@ def compute_spectra(eta, dt, t=None, n_overlap=1024, nfft=2048*10, tlim=None):
     #window = np.bartlett(nfft)
     f, spec_den = sig.welch(eta_i, fs=fs, nperseg=nfft, scaling='density')
 
-    print('----------')
-    print(f[0], f[-1])
-    print(len(eta_i), len(ti))
-    print(len(f))
-    print('----------')
     df = f[1]-f[0]
     e_tot = np.sum(spec_den*df)
     Hrms = np.sqrt(e_tot*8)
@@ -99,5 +94,45 @@ def compute_spectra(eta, dt, t=None, n_overlap=1024, nfft=2048*10, tlim=None):
     
     return f, spec_den, Hmo, energy
 
+# sub_ffts Number of sub ffts to performs, i.e., nfft scales with size of data 
+def compute_spectra2(eta, dt, t=None, sub_ffts=1, scaling='density', tlim=None, **welch_kwargs):
+    
+    fs = 1.0/dt
+    
+    if not t is None:
+        if not tlim is None:
+            i0, i1 = [int(np.round(x/dt)) for x in tlim]
+            eta = eta[i0:i1+1]
+    else:
 
+        # Get indices of limits
+        t0, t1 = t.min(), t.max() if tlim is None else tlim
+
+        # Interpolating onto equispaced grid 
+        n = int(np.round((t1-t0)/dt))
+        ti = np.arange(0, n+1)*dt + t0  
+        #eta = np.interp(ti, t, eta)
+
+    
+    if len(welch_kwargs) == 0:
+        kwargs = dict(
+            nfft = len(eta)//sub_ffts
+            scaling = scaling
+        )
+    else:
+        # Overidding other sub_ffts and scaling if unspecfied kwargs is given,
+        # assumes unspecfied kwargs is a sig.welch kwarg and is not fs
+        kwargs = welch_kwargs.copy()
+
+    f, spec_den = sig.welch(eta, fs=fs, **kwargs)
+    energy = np.trapezoid(spec_den, f)
+
+    hmo = energy2hmo(energy)
+
+    return f, spec_den, hmo, energy
+
+def energy2hmo(energy):
+    hrms = np.sqrt(energy*8)
+    hmo = np.sqrt(2.0)*hrms
+    return hmo
 
