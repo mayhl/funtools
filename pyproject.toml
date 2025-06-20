@@ -40,6 +40,7 @@ holoviews = "^1.19.1"
 selenium = "^4.26.1"
 plotly = "^5.24.1"
 webdriver-manager = "^4.0.2"
+dask = {extras = ["distributed"], version = "^2025.5.1"}
 
 [build-system]
 requires = ["poetry-core"]
