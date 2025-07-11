@@ -7,11 +7,11 @@ from ..math import grid
 
 from ..math.projection import LinkedProjections
 
+from ..math.geometry import Polygon
+
 
 class Parser:
-
     def __init__(self, dpath: Path, input: InputFile | None = None) -> None:
-
         if input is None:
             input = InputFile.from_file(dpath)
 
@@ -215,9 +215,17 @@ class Parser:
         fname = "%s_%05d" % (name, index)
         return self._read(self._dpath / fname)
 
+    def _read_shape(self, fpath: str) -> Polygon:
+        """Overrideable method for transforming polygon in child classes"""
+        return Polygon.from_file(fpath)
+
+    def read_shape(self, fpath: str) -> Polygon:
+        """Returns Polygon and applies view"""
+        poly = self._read_shape(fpath)
+        return poly.apply_crop(self.view_bounds)  # , buffer_ratio=0.1)
+
 
 class ProjectionParser(Parser):
-
     def __init__(
         self,
         dpath: Path,
@@ -235,6 +243,8 @@ class ProjectionParser(Parser):
         self._xi = np.array([])
         self._yi = np.array([])
 
+        self._view_bounds = self._proj.bounds_to_source(*self.view_bounds)
+
     def set_view(
         self,
         bounds: tuple[float, float, float, float] | None = None,
@@ -245,7 +255,6 @@ class ProjectionParser(Parser):
         target: str | None = None,
         resolution: float | None = None,
     ) -> None:
-
         self._view_args = {
             "bounds": bounds,
             "stride": stride,
@@ -258,7 +267,6 @@ class ProjectionParser(Parser):
 
         # Computing bounding box in target coordinates
         if bounds is None:
-
             bounds = self._proj.bounds_to_source(*super().bounds, source=target)
         else:
             # TODO: Add support for reverse direction
@@ -330,8 +338,11 @@ class ProjectionParser(Parser):
         du, dv = du / 2, dv / 2
         self._view_bounds = (u[0] - du, v[0] - dv, u[-1] + du, v[-1] + dv)
 
-    def _read(self, fpath: Path) -> np.ndarray:
+    def _read_shape(self, fpath: str) -> Polygon:
+        poly = super()._read_shape(fpath)
+        return poly.apply_transform(self._proj.to_source)
 
+    def _read(self, fpath: Path) -> np.ndarray:
         args = self._pts, super()._read(fpath)
         kwargs = {"bounds_error": False}
 

@@ -2,7 +2,8 @@ from pathlib import Path
 import typing
 from cmocean import cm
 import holoviews as hv
-
+import json
+import pickle
 # from holoviews import opts
 
 
@@ -13,19 +14,26 @@ from scipy.interpolate import RegularGridInterpolator
 import numpy as np
 from pathlib import Path
 
+from funtools.math.geometry import equipartitioned_mask2shape
 from funtools.io.input import InputFile
 from funtools.io.field import Parser, ProjectionParser
 from funtools.math.projection import LinkedProjections
-from funtools.math import grid
 from funtools.ui.colorbar import ColorBar
-
+from ..math import grid
 from ..parallel.mydask import ClassJob, Scheduler
+from funtools.parallel.multi import simple
+from funtools.math.geometry import Polygon
+
+try:
+    get_ipython()
+    from tqdm import tqdm_notebook as tqdm
+except NameError:
+    from tqdm import tqdm
 
 hv.extension("bokeh")
 
 
 class Simulation:
-
     def __init__(
         self,
         dpath: Path | str,
@@ -42,6 +50,8 @@ class Simulation:
         self._input = InputFile.from_file(dpath)
         self._dpath = dpath
         self._data = Parser(dpath, self._input)
+
+        self._post_dpath = dpath / "postprocessing"
 
         self._plot_kwargs = {}
         self._init = {
@@ -81,7 +91,9 @@ class Simulation:
         if isinstance(kwargs["colorbar"], bool):
             return {}
 
-        return {"colorbar": True, **ColorBar(**kwargs["colorbar"]).to_holoviews()}
+        colorbar = "clabel" in kwargs
+
+        return {"colorbar": colorbar, **ColorBar(**kwargs["colorbar"]).to_holoviews()}
 
     def _plot_step(
         self,
@@ -141,7 +153,6 @@ class Simulation:
             labels = opts.pop("label")
 
         def parse(val) -> float:
-
             if isinstance(val, float):
                 return val
             if isinstance(val, int):
@@ -215,6 +226,103 @@ class Simulation:
 
         return plt.opts(**gbl_kwargs)
 
+    def plot_flood(self, name: str, index: int, kwargs: dict = {}):
+        """ "Returns holoviews/bokeh plot of FUNWAVE 2D field variable
+        at specfied timestep with optional configuration"""
+
+        self._plot_args = (name, index)
+        self._plot_kwargs = kwargs
+        self._job.create("plot", (name, index), kwargs, f"Plot {name}_{index:05d}")
+
+        # Quick method for return empty dict if key does not exsist
+        get_kwargs = lambda kw: kwargs[kw] if kw in kwargs else {}
+
+        # Saving method args/kwargs for exporting
+        if self.dry_run:
+            return
+
+        water_level = self._input.get_flt("WaterLevel")
+
+        plt_kwargs = get_kwargs("plot")
+        # Optional scalebar
+        plt_kwargs.update(self._get_scalebar_opts(get_kwargs("scalebar")))
+
+        data = np.flipud(self.data.read_step(name, index))
+        mask = np.flipud(self.data.read_mask_step(index))
+        bathy = np.flipud(self.data.read_bathy())
+        data_masked = np.ma.masked_array(data, mask=bathy >= -water_level)
+
+        bounds = self.data.view_bounds
+
+        if "bathy" in kwargs:
+            plt_kwargs = get_kwargs("bathy")
+            plt = self._plot_step(bathy, bounds, plt_kwargs)
+        else:
+            plt = self._plot_step(data_masked, bounds, plt_kwargs)
+
+        n, m = mask.shape
+
+        mask2 = np.zeros((n, m)).astype(bool)
+
+        for j in range(n):
+            for i in range(m):
+                mask2[j, i] = bathy[j, i] < -water_level or (mask[j, i] == True)
+        # mask2 = (bathy <= 0) & mask
+
+        data_land = np.ma.masked_array(data, mask=mask2)
+
+        filt = ~np.isnan(data_land)
+
+        filt = bathy > 0
+        data_land -= bathy
+
+        plt_kwargs = get_kwargs("flood")
+
+        plt = self._plot_step(data_land, bounds, plt_kwargs)
+        # plt = plt * self._plot_step(data_land, bounds, plt_kwargs)
+        # plt = self._plot_step(data_land, bounds, {})
+        # Optional bathy contour lines
+        opts = get_kwargs("bathy_contour")
+        if len(opts) > 0:
+            bathy = np.flipud(self.data.read_bathy())
+            plt = plt * self._plot_contours(bathy, opts)
+
+        # Setting default global options
+        x0, y0, x1, y1 = self.data.view_bounds
+        gbl_kwargs = {
+            "aspect": "equal",
+            "xlim": (x0, x1),
+            "ylim": (y0, y1),
+        }
+
+        if "global" in kwargs:
+            gbl_kwargs.update(kwargs["global"])
+
+        return plt.opts(**gbl_kwargs)
+
+    def save_plot(
+        self,
+        name: str,
+        index: int,
+        kwargs: dict = {},
+        output_dpath: str | None = None,
+    ):
+        """Saves one or more plots as png files in postprocessing subdirectory of simulation folder.
+        Optional directory alternate file placement"""
+
+        if output_dpath is None:
+            output_dpath = self._dpath / "postprocessing"
+        elif isinstance(output_dpath, str):
+            output_dpath = Path(output_dpath)
+
+        output_dpath.mkdir(parents=True, exist_ok=True)
+
+        assert isinstance(output_dpath, Path)
+        fpath = output_dpath / f"{name}_{index:05d}.png"
+        plt = self.plot(name, index, kwargs)
+        hv.save(plt, fpath)
+        del plt
+
     def save_plots(
         self,
         name: str,
@@ -237,8 +345,8 @@ class Simulation:
         output_dpath.mkdir(parents=True, exist_ok=True)
 
         assert isinstance(output_dpath, Path)
-        for i in index:
-            fpath = output_dpath / f"eta_{i:05d}.png"
+        for i in tqdm(index, desc="Plotting"):
+            fpath = output_dpath / f"plot_{i:05d}.png"
             plt = self.plot(name, i, kwargs)
 
             # Calling plot function to save args/kwargs in dry run
@@ -258,7 +366,6 @@ class Simulation:
 
         last_view_task = None
         for n, t in tasks:
-
             if t._method == "set_view":
                 last_view_task = t
                 continue
@@ -301,6 +408,197 @@ class Simulation:
         job.create("plot", self._plot_args, self._plot_kwargs, name=name)
         return job.get_manifest()
 
+    def compute_flooding(self, n_procs: int = 1, subatch_size: int = 1):
+        """Return the total flooding as a function of time and the number of times grid point was dry"""
+        bathy = self.data.read_bathy()
+        land = bathy > 0
+
+        no_water_level = bathy > -self.input.get_flt("WaterLevel")
+
+        idxs = self.data.get_time_steps("eta")
+
+        dx, dy = [self.input.get_flt(s) for s in ["DX", "DY"]]
+        cell_area = dx * dy
+
+        if n_procs == 1:
+            subidxs = [idxs]
+        else:
+            n = len(idxs)
+            n_batches = n // subatch_size
+            subidxs = [idxs[s] for s in grid.even_divide_slices(n, n_batches)]
+
+        args = [(self, i, land) for i in subidxs]
+        # args = [(self._dpath, i) for i in subidxs]
+        flood, dry_counts = zip(
+            *[simple(_compute_flood_steps, n_procs, args, p_desc="Computing")][0]
+        )
+
+        flood = np.concatenate(flood)
+
+        # Reducing to find total dry count
+        dry_count = dry_counts[0]
+        for m in dry_counts[1:]:
+            dry_count = dry_count + m
+
+        flood = flood * cell_area
+
+        flood_dpath = self._post_dpath / "flood"
+        flood_dpath.mkdir(parents=True, exist_ok=True)
+
+        fpath = flood_dpath / "dry_time.npy"
+        with open(fpath, "wb") as fh:
+            np.save(fh, dry_count)
+
+        flood_area = (dry_count < n) & land
+        fpath = flood_dpath / "mask.npy"
+        with open(fpath, "wb") as fh:
+            np.save(fh, flood_area)
+
+        x = self.data.x
+        y = self.data.y
+        poly = equipartitioned_mask2shape(x, y, flood_area, n_procs=n_procs)
+        fpath = flood_dpath / "poly.pkl"
+        with open(fpath, "wb") as fh:
+            pickle.dump(poly, fh, pickle.HIGHEST_PROTOCOL)
+
+        t = np.array(idxs) * self.input.get_flt("PLOT_INTV")
+        land = np.sum(land) * cell_area
+
+        water_level = no_water_level & ~land
+        poly = equipartitioned_mask2shape(x, y, water_level, n_procs=n_procs)
+        fpath = flood_dpath / "water_level_poly.pkl"
+        with open(fpath, "wb") as fh:
+            pickle.dump(poly, fh, pickle.HIGHEST_PROTOCOL)
+
+        no_water_level = np.sum(no_water_level) * cell_area - land
+
+        fpath = flood_dpath / "data.json"
+        data = {
+            "t": t.tolist(),
+            "total": flood.tolist(),
+            "land": float(land),
+            "water_level": float(no_water_level),
+        }
+
+        with open(fpath, "w") as fh:
+            json.dump(data, fh)
+
+        plt = hv.Curve((t / 3600, flood / (1000**2)))
+
+        opts = {
+            "width": 600,
+            "xlabel": "Time (hr)",
+            "ylabel": "Flooding (km²)",
+            "fontsize": {
+                "title": 25,
+                "labels": 18,
+                "xticks": 16,
+                "yticks": 14,
+            },
+        }
+
+        plt.opts(**opts)
+
+        fpath = flood_dpath / "plot.png"
+        hv.save(plt, fpath)
+
+        return plt
+
+    def plot_shapes(self, fpaths: list[str], kwargs: dict = {}):
+        labels = kwargs["labels"]
+        colors = kwargs["colors"]
+
+        plts = []
+        for fpath, label, color in zip(fpaths, labels, colors):
+            p = self.data.read_shape(fpath)
+            plt = hv.Polygons(p.to_hv_dict(), label=label)
+            # NOTE: show_legend needed here
+            plt.opts(
+                fill_color=color,
+                **kwargs["common_opts"],
+                show_legend=True,
+                **kwargs["global"],
+            )
+            plts.append(plt)
+
+        plt = plts[0]
+        for p in plts[1:]:
+            plt = plt * p
+
+        print(kwargs)
+        if "bathy" in kwargs:
+            get_kwargs = lambda kw: kwargs[kw] if kw in kwargs else {}
+
+            bounds = self.data.view_bounds
+            bathy = self.data.read_bathy()
+            print("HERE")
+            plt_kwargs = get_kwargs("bathy")
+
+            plt = self._plot_step(bathy, bounds, plt_kwargs) * plt
+
+        x0, y0, x1, y1 = self.data.view_bounds
+        gbl_kwargs = {
+            "aspect": "equal",
+            "xlim": (x0, x1),
+            "ylim": (y0, y1),
+            "show_legend": True,
+        }
+
+        kwargs = {}
+        if "global" in kwargs:
+            gbl_kwargs.update(kwargs["global"])
+
+        return plt.opts(**gbl_kwargs)
+
+
+from bokeh.models import ColumnDataSource
+from shapely.geometry import Polygon, MultiPolygon
+
+
+def shapely_2_bokeh_datasource(poly):
+    xs_dict = []
+    ys_dict = []
+
+    polys = [poly] if isinstance(poly, Polygon) else poly.geoms
+
+    polys = [p for p in polys if isinstance(p, Polygon)]
+
+    xs = []
+    ys = []
+    holes = []
+    for p in polys:
+        holes = list(zip(*[s.xy for s in p.interiors]))
+        xi, yi = holes if len(holes) == 2 else [], []
+        xe, ye = p.exterior.xy
+
+        xs.append(xs)
+        ys.append(ys)
+
+        xs_dict.append([{"exterior": list(xe), "holes": list(xi)}])
+        ys_dict.append([{"exterior": list(ye), "holes": list(yi)}])
+
+    xs = [[[p["exterior"], *p["holes"]] for p in mp] for mp in xs_dict]
+    ys = [[[p["exterior"], *p["holes"]] for p in mp] for mp in ys_dict]
+
+    return ColumnDataSource(dict(xs=xs, ys=ys))
+
+
+def _compute_flood_steps(self, steps, land):
+    # def _compute_flood_steps(dpath, steps):
+    # self = Simulation(dpath)
+    # bathy = self.data.read_bathy()
+    # land = bathy > 0
+
+    dry_count = np.zeros(land.shape)
+    flood = []
+    for i in steps:
+        mask = self.data.read_mask_step(i)
+
+        flood.append(np.sum(~mask & land))
+        dry_count = dry_count + mask
+
+    return flood, dry_count
+
 
 class ProjectedSimulation(Simulation):
     """Derived class for projected FUNWAVE data into Geospatial coordinates"""
@@ -328,9 +626,53 @@ class ProjectedSimulation(Simulation):
     def raw_data(self) -> Parser:
         return self._raw_data
 
+    def plot_shapes(self, fpaths: list[str], kwargs: dict = {}):
+        plt = super().plot_shapes(fpaths, kwargs)
+
+        if "tile_map" in kwargs:
+            tiles = hv.element.tiles.tile_sources[kwargs["tile_map"]]()
+            plt = tiles * plt
+
+        x0, y0, x1, y1 = self.data.view_bounds
+        gbl_kwargs = {
+            "aspect": "equal",
+            "xlim": (x0, x1),
+            "ylim": (y0, y1),
+        }
+
+        kwargs = {}
+        if "global" in kwargs:
+            gbl_kwargs.update(kwargs["global"])
+
+        return plt.opts(**gbl_kwargs)
+
     def plot(self, name: str, index: int, kwargs: dict = {}):
         # Calls same paraent plot routines with projected data
         plt = super().plot(name, index, kwargs)
+
+        # Call parent plot first to saving arg/kwargs in dry run mode
+        if self.dry_run:
+            return
+
+        if "tile_map" in kwargs:
+            tiles = hv.element.tiles.tile_sources[kwargs["tile_map"]]()
+            plt = tiles * plt
+
+        x0, y0, x1, y1 = self.data.view_bounds
+        gbl_kwargs = {
+            "aspect": "equal",
+            "xlim": (x0, x1),
+            "ylim": (y0, y1),
+        }
+
+        if "global" in kwargs:
+            gbl_kwargs.update(kwargs["global"])
+
+        return plt.opts(**gbl_kwargs)
+
+    def plot_flood(self, name: str, index: int, kwargs: dict = {}):
+        # Calls same paraent plot routines with projected data
+        plt = super().plot_flood(name, index, kwargs)
 
         # Call parent plot first to saving arg/kwargs in dry run mode
         if self.dry_run:

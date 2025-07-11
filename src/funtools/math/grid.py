@@ -2,7 +2,6 @@ import numpy as np
 
 
 def linspace(s0: float, s1: float, n: int, mode: str = "centered") -> np.ndarray:
-
     mmap = {
         "centered": (False, lambda dx: dx / 2),
         "left": (False, lambda dx: 0),
@@ -45,7 +44,6 @@ def rectilinear2d(
 
 # Generated linear space for some given spacing centered on some range
 def nearest_linspace(s0: float, s1: float, ds: float, mode="centered") -> np.ndarray:
-
     l = s1 - s0
     n = int(np.floor(l / ds))
     if n < 1:
@@ -75,6 +73,14 @@ def even_divide_slices(num: int, div: int, off: int = 0) -> list[slice]:
         idxs[i] = (idxs[i - 1][1], idxs[i - 1][1] + grps[i])
 
     return [slice(i0, i1) for i0, i1 in idxs]
+
+
+def even_divide_subgrid_slices(data: np.ndarray, target_1d_length: int):
+    n, m = data.shape
+    nb, mb = [round(s / target_1d_length) for s in [n, m]]
+    sy, sx = [even_divide_slices(*it) for it in [(n, nb), (m, mb)]]
+    sx, sy = [s.flatten() for s in np.meshgrid(sx, sy)]
+    return sy, sx, nb, mb
 
 
 def nearest_linspace2d(
