@@ -267,8 +267,8 @@ def _simple2(call_list, n_procs, p_bar=None):
             
     return results 
 
-import ray
-from ray.experimental import tqdm_ray
+#import ray
+#from ray.experimental import tqdm_ray
 
 def _simple3(call_list, n_procs, p_bar=None):
 
@@ -313,7 +313,7 @@ def _simple3(call_list, n_procs, p_bar=None):
     return results 
 
 
-@ray.remote
+#@ray.remote
 def retrieve_task(p_bar, func, *args, **kwargs):
     result = func(*args, **kwargs)
     p_bar.update.remote(1)

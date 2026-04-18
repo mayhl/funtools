@@ -1,17 +1,17 @@
 import os
 import pickle
+
 import numpy as np
 from scipy.spatial import cKDTree as KDTree
+from shapely import MultiPolygon, Polygon
 
-from shapely import Polygon, MultiPolygon
-
-import funtools.bokeh as qbokeh
-
-from funtools.error import *
-from funtools.create_scatter_poly import generate as generate_scatter_poly
-from funtools.create_equipartition_poly import generate as generate_equipartition_poly
-from funtools.buffer_fill_poly import create as buffer_fill_poly
-
+import funtools.backup.bokeh as qbokeh
+from funtools.backup.buffer_fill_poly import create as buffer_fill_poly
+from funtools.backup.create_equipartition_poly import \
+    generate as generate_equipartition_poly
+from funtools.backup.create_scatter_poly import \
+    generate as generate_scatter_poly
+from funtools.backup.error import *
 
 
 class BufferData:
@@ -19,30 +19,28 @@ class BufferData:
 
         self._data = data
         self._fpath = None
-        
 
     def match_existing_fpath(self, dpath, base_name):
-        
+
         fpath = os.path.join(dpath, base_name)
         npy_fpath = fpath + ".npy"
         pkl_fpath = fpath + ".pkl"
-        is_npy  = os.path.exists(npy_fpath)
-        is_pkl  = os.path.exists(pkl_fpath)
+        is_npy = os.path.exists(npy_fpath)
+        is_pkl = os.path.exists(pkl_fpath)
 
-   
         if is_npy == is_pkl:
-            if is_npy: raise Exception ("Numpy and pickle file detected.")
-            # No files exist 
-            return 
+            if is_npy:
+                raise Exception("Numpy and pickle file detected.")
+            # No files exist
+            return
 
         self._fpath = npy_fpath if is_npy else pkl_fpath
-     
 
     def get(self):
         if self._data is None and not self._fpath is None:
             self.load()
         return self._data
-        
+
     def save(self, dpath, base_name):
         fpath = os.path.join(dpath, base_name)
         if isinstance(self._data, np.ndarray):
@@ -76,6 +74,7 @@ class BufferData:
             warnings.warn("Flushing data that does not seem to be have saved.")
         self._data = None
 
+
 class Datum:
     def __init__(self, xyz=None, poly=None, is_satellite=False):
         self.xyz = xyz
@@ -101,15 +100,17 @@ class Datum:
 
         for var, suffix in self._smaps:
             fname = base_name + suffix
-            if var is None: 
+            if var is None:
                 var = BufferData()
                 setattr(self, suffix, var)
-            var.match_existing_fpath(dpath, fname)  
-            if var.get() is None: var = None
-    
+            var.match_existing_fpath(dpath, fname)
+            if var.get() is None:
+                var = None
+
     def save(self, dpath, base_name):
         for var, suffix in self._smaps:
-            if var is None: continue
+            if var is None:
+                continue
             if not var.get() is None:
                 fname = base_name + suffix
                 var.save(dpath, fname)
@@ -124,7 +125,7 @@ class Datum:
         }
 
         assert method in mmap.keys(), "Unknown boundary polygon method '%s'." % method
-        #self.poly = mmap[method](self.xyz[:, 0:2], **kwargs)
+        # self.poly = mmap[method](self.xyz[:, 0:2], **kwargs)
         self.poly = mmap[method](self.kdtree, **kwargs)
 
     def modify_boundary_poly(self, method, **kwargs):
@@ -144,12 +145,12 @@ class Datum:
 
     @xyz.setter
     def xyz(self, value):
-        
+
         if value is not None:
             self.kdtree = KDTree(value)
         else:
             self._kdtree = None
-     
+
     @property
     def kdtree(self):
         return None if self._kdtree is None else self._kdtree.get()
@@ -189,7 +190,7 @@ class Datum:
             kwargs[key] = True
 
         kwargs["is_satellite"] = self._is_satellite
-  
+
         self._fig, self._container = qbokeh.qcreate_figure(**kwargs)
 
         # # Extract figure sizes to use in 'container' for better sizing_mode
@@ -240,22 +241,24 @@ class Datum:
             assert not self.xyz is None, "No polygon data."
             self._init_figure(fig, **fig_kwargs)
 
-        
         args = (self.fig, self.poly)
-        
+
         plt_kwargs = dict(color=color, line_width=2)
-        if  True: #label is None: 
+        if True:  # label is None:
             self._renderer_poly = qbokeh.plot_poly(*args, **plt_kwargs)
         else:
 
             # NOTE: Messy
-            if type(self.poly) in [MultiPolygon, Polygon]:    
-                plt_kwargs['legend_label'] = label
-                self._renderer_poly, self._renderer_poly_mark = qbokeh.plot_poly(*args, **plt_kwargs)
+            if type(self.poly) in [MultiPolygon, Polygon]:
+                plt_kwargs["legend_label"] = label
+                self._renderer_poly, self._renderer_poly_mark = qbokeh.plot_poly(
+                    *args, **plt_kwargs
+                )
             else:
-                self._renderer_poly= qbokeh.plot_poly(*args, **plt_kwargs) 
+                self._renderer_poly = qbokeh.plot_poly(*args, **plt_kwargs)
 
-    def create_xyz_plot(self, fig=None, color="blue", is_skip_checks=False, **fig_kwargs
+    def create_xyz_plot(
+        self, fig=None, color="blue", is_skip_checks=False, **fig_kwargs
     ):
         if not is_skip_checks:
             assert not self.xyz is None, "No XYZ scatter data."
@@ -263,11 +266,11 @@ class Datum:
 
         args = (self.fig, self.xyz)
 
-        if self.xyz_plot_kwargs is None: 
+        if self.xyz_plot_kwargs is None:
             plt_kwargs = dict(color=color)
         else:
-            plt_kwargs = self.xyz_plot_kwargs 
-            
+            plt_kwargs = self.xyz_plot_kwargs
+
         self._renderer_xyz = qbokeh.plot_scatter(*args, **plt_kwargs)
 
     def create_xyz_cmap_plot(self, fig=None, **fig_kwargs):
@@ -276,7 +279,7 @@ class Datum:
         self._init_figure(fig, **fig_kwargs)
 
         args = (self.fig, self.xyz)
-        plt_kwargs = dict(size = 4)
+        plt_kwargs = dict(size=4)
         self._renderer_xyz_cmap = qbokeh.plot_scatter_cmap(*args, **plt_kwargs)
 
     def create_plot(self, fig=None, label=None, color="blue", **fig_kwargs):
@@ -288,15 +291,16 @@ class Datum:
             self.create_xyz_plot(fig, color=color, is_skip_checks=True, **fig_kwargs)
 
         if not self.poly is None:
-            print(fig_kwargs)
-            self.create_poly_plot(fig, color=color, label=label, is_skip_checks=True, **fig_kwargs)
+            self.create_poly_plot(
+                fig, color=color, label=label, is_skip_checks=True, **fig_kwargs
+            )
 
     def show(self, **kwargs):
         assert not self._container is None, "No figure created."
         qbokeh.show(self._container, **kwargs)
 
     def _plot(self, plot_func, fig_kwargs={}, plt_kwargs={}, **kwargs):
-        
+
         show_kwargs = qbokeh.pop_show_kwargs(kwargs)
 
         if len(kwargs) > 0:
@@ -311,7 +315,7 @@ class Datum:
 
     def plot_xyz(self, fig_kwargs={}, plt_kwargs={}, **kwargs):
         self._plot(self.create_xyz_plot, fig_kwargs, plt_kwargs, **kwargs)
-        
+
     def plot_xyz_cmap(self, fig_kwargs={}, plt_kwargs={}, **kwargs):
         self._plot(self.create_xyz_cmap_plot, fig_kwargs, plt_kwargs, **kwargs)
 

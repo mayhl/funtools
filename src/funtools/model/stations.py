@@ -8,14 +8,13 @@ import scipy.signal as sig
 from scipy.signal import find_peaks
 
 from funtools.io.field import Parser
-from funtools.io.input import InputFile
+from funtools.io.input.main import InputFile
 from funtools.math import waves
 
 hv.extension("bokeh")  # pyright: ignore
 
 
 def _read_station_file(dpath):
-
     input = InputFile.from_file(dpath)
     fpath = dpath / input.get_str("STATIONS_FILE")
     out_dpath = dpath / input.get_str("RESULT_FOLDER")
@@ -50,7 +49,6 @@ def _read_station_file(dpath):
 
 
 class Spectra:
-
     def __init__(
         self,
         eta: np.ndarray,
@@ -60,7 +58,6 @@ class Spectra:
         sub_ffts: None | int = None,
         **kwargs,
     ):
-
         self._dt = dt
         self._fs = 1 / dt
 
@@ -90,7 +87,7 @@ class Spectra:
                 sub_ffts = 120
 
             n = len(eta)
-            kwargs["nperseg"] = n // sub_ffts
+            # kwargs["nperseg"] = n // sub_ffts
 
         self._kwargs = kwargs
 
@@ -104,7 +101,6 @@ class Spectra:
         self._density = None
 
     def update_tlim(self, tlim: tuple[float, float] | None):
-
         if tlim is None:
             tlim = self._t_bnd
         i0, i1 = [int(np.round(x / self._dt)) for x in tlim]
@@ -112,7 +108,6 @@ class Spectra:
         self.flush()
 
     def compute_hmo(self, threholds: list[float] = []):
-
         density = self.density
         f = self.freq
 
@@ -120,7 +115,6 @@ class Spectra:
 
         filts = []
         for f0 in threholds:
-
             i1 = np.argmin(np.abs(f0 - f))
             filts.append(slice(i0, i1))
             i0 = i1
@@ -179,7 +173,6 @@ class Station:
         dt: float,
         dpath: Path | str,
     ) -> None:
-
         if isinstance(dpath, str):
             dpath = Path(dpath)
 
@@ -202,11 +195,11 @@ class Station:
         dt = np.diff(t)
         i = np.argmin(dt)
 
-        if dt[i] == 0:
-            return data[:i, :]
+        # if dt[i] == 0:
+        # return data[:i, :]
 
-        else:
-            return data
+        # else:
+        return data
 
     def eta_timeseries(self) -> tuple[np.ndarray, np.ndarray]:
         """Returns timestamp and eta timeseries data for station"""
@@ -226,7 +219,6 @@ class Station:
         welch: dict = {},
         plot: dict = {},
     ):
-
         if not isinstance(tlim, list):
             tlim = [tlim]
 
@@ -273,9 +265,7 @@ class Station:
 
 
 class Runup:
-
     def __init__(self, x, h, eta, threshold=0):
-
         self._x = x
         self._h = h
 
@@ -296,7 +286,6 @@ class Runup:
             line = [np.array([i0])]
 
             for next_idxs in self._idxs[1:]:
-
                 idxs = [k for k in next_idxs if abs(k - i0) <= n_range]
 
                 if len(idxs) == 0:
@@ -309,7 +298,6 @@ class Runup:
         # Refining zero point
         # NOTE: indices can be float with non-integer part used for linear interpolation
         def get_point(i, j):
-
             jp = j + 1
             wh = self._water_height[i, j]
             whp = self._water_height[i, jp]
@@ -325,10 +313,8 @@ class Runup:
         raw_lines = lines
         lines = []
         for raw_line in raw_lines:
-
             line = []
             for i, idxs in enumerate(raw_line):
-
                 line.append(np.array([get_point(i, j) for j in idxs]))
 
             lines.append(line)
@@ -337,7 +323,6 @@ class Runup:
         raw_lines = lines
         lines = []
         for raw_line in raw_lines:
-
             lines.append(
                 {
                     #'raw': raw_line,
@@ -356,7 +341,6 @@ class Runup:
 
         # Smoothingg data
         for raw_line in raw_lines:
-
             max_i = raw_line["max"]
             min_i = raw_line["min"]
 
@@ -381,7 +365,6 @@ class Runup:
         raw_lines = lines
         lines = []
         for raw_line in raw_lines:
-
             max_i = raw_line["max"]
             min_i = raw_line["min"]
 
@@ -402,7 +385,6 @@ class Runup:
 
 
 class Transect:
-
     def __init__(self, stations: list[Station]) -> None:
         self._items = stations  # [:200]
 
@@ -412,7 +394,6 @@ class Transect:
         self._x = np.array([s.x for s in self._items]).astype(float)
 
     def load_data(self):
-
         ns = len(self._items)
 
         t, eta = self._items[0].eta_timeseries()
@@ -423,7 +404,6 @@ class Transect:
         data[0, :] = eta
 
         for i, s in enumerate(self._items[1:], start=1):
-
             _, eta = s.eta_timeseries()
             data[i, :] = eta
 
@@ -435,14 +415,14 @@ class Transect:
         return t, data
 
     def compute_runup(self, n_range, distance):
-
         t, data = self.load_data()
 
         runup = Runup(self._x, self._h, data)
-        data = runup.simple_filter(n_range)[0]
+
+        i = 2
+        data = runup.simple_filter(n_range)[i]
 
         def process(data):
-
             idxs, _ = find_peaks(data, distance=distance)
             peaks = data[idxs]
             n = len(peaks)
@@ -451,6 +431,7 @@ class Transect:
 
         data = {
             "t": t,
+            "x0": data["x"]["min"][0],
             "x": process(data["x"]["min"] - data["x"]["min"][0]),
             "h": process(data["h"]["min"]),
         }
@@ -461,7 +442,6 @@ class Transect:
         return data
 
     def plot_runup(self, n_range, distance):
-
         scale = 1 / 3600
         t_label = "Time (hr)"
         fontsize = {
@@ -472,7 +452,6 @@ class Transect:
         }
 
         def _plot_runup(data, var_label):
-
             plt = hv.Curve(zip(t * scale, data["data"]))
 
             plt.opts(
@@ -547,8 +526,11 @@ class Stations:
         return self._h
 
     def to_simple_transects(self, n_transects: int) -> list[Transect]:
-
         n = len(self._items)
         m = n // n_transects
+
+        items = np.reshape(self._items, (m, n_transects)).T
+
+        return [Transect(it) for it in items]
 
         return [Transect(self._items[i : (i + m)]) for i in range(0, n, m)]

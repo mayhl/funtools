@@ -1,13 +1,60 @@
-import numpy as np
+from dataclasses import dataclass
 from pathlib import Path
 
-from .input import InputFile
+import numpy as np
+from numpy.typing import NDArray
 
+# from ..grid.types import Equipartition2D
 from ..math import grid
-
-from ..math.projection import LinkedProjections
-
 from ..math.geometry import Polygon
+from ..math.projection import LinkedProjections as LinkedProjections
+from ..math.projection import LinkedProjectionsV2
+from .input.main import InputFile
+
+#
+# class Reader:
+#
+#     def __init__(self, input: Input | str) -> None:
+#
+#         if isinstance(input, str):
+#             input = Input.fromFile(input)
+#
+#         self.input = input
+#         grid = input.grid
+#         #        self.grid = Equipartition2D(grid.dx, grid.dy, grid.nx, grid.ny)
+#         self.out_path = out_path = Path(input.output.path)
+#
+#         vars = ["_".join(f.name.split("_")[:-1]) for f in out_path.glob("*_05d")]
+#
+#     def __read(self, str: fpath) -> NDArray:
+#
+#         match self.input.output.type:
+#
+#             case FieldOutputTypeEnum.ASCII:
+#                 return self.__readAscii(fpath)
+#             case FieldOutputTypeEnum.BINARY:
+#                 return self.__readBinary(fpath)
+#             case _:
+#                 assert False
+#
+#     def __readBinary(self, fpath: str) -> NDArray:
+#         data = np.fromfile(fpath, dtype="<f8").reshape([self.grid.ny, self.grid.nx])
+#         return data
+#
+#     def __readAscii(self, fpath: str) -> NDArray:
+#         pass
+#
+#     def readStep(self, key: str, step: int) -> NDArray:
+#         fpath = self.out_path / f"{key}_{step:05d}"
+#         return self.__read(fpath)
+#
+#     def readMask(self, step: int) -> NDArray:
+#         fpath = self.out_path / f"mask_{step:05d}"
+#         return self.__read(fpath) == 0
+#
+#     def readBathy(self) -> NDArray:
+#         fpath = self.out_path / f"dep.out"
+#         return self.__read(fpath)
 
 
 class Parser:
@@ -18,6 +65,8 @@ class Parser:
         self._dpath = dpath / input.get_str("RESULT_FOLDER")
 
         self._is_2d = input.get_int("Nglob") > 3
+
+        self._dt = input.get_flt("PLOT_INTV")
 
         self._m, self._n = m, n = [input.get_int(s) for s in ["Mglob", "Nglob"]]
         self._dx, self._dy = dx, dy = [input.get_flt(s) for s in ["DX", "DY"]]
@@ -31,8 +80,11 @@ class Parser:
 
         self._j_south = self._get_j(input.get_flt("Sponge_south_width"))
         self._j_north = self._get_j(dy * n - input.get_flt("Sponge_north_width"))
+        # tmp = 1000
+        # self._j_south = self._get_j(tmp)
+        # self._j_north = self._get_j(dy * n - tmp)
 
-        self._i_wave = self._get_i(input.get_flt("Wc_WK"))
+        self._i_wave = self._get_i(input.get_flt("Xc_WK"))
 
         is_binary = input.get_str("FIELD_IO_TYPE") == "BINARY"
         self.__read = self._read_binary if is_binary else self._read_ascii
@@ -40,6 +92,39 @@ class Parser:
         self._view_bounds = self.bounds
 
         self._view_args = {}
+
+    def getOutputSteps(self) -> NDArray:
+
+        base_file = "eta"
+        fnames = [f.name for f in Path(self._dpath).glob(f"{base_file}_*")]
+
+        steps = [int(f.split("_")[-1]) for f in fnames]
+
+        steps = np.sort(steps).astype(int)
+        if steps[-1] == 99999:
+            steps = steps[:-1]
+
+        return steps
+
+    def getTimeSteps(self, t_min=None, t_max=None):
+
+        idx = self.getOutputSteps()
+
+        t = idx * self._dt
+
+        if t_min is None:
+            i0 = None
+        else:
+            i0 = np.argmin(np.abs(t - t_min))
+
+        if t_max is None:
+            i1 = None
+        else:
+            i1 = np.argmin(np.abs(t - t_max)) + 1
+
+        st = slice(i0, i1)
+
+        return idx[st], t[st]
 
     def get_type(self, name: str) -> tuple[bool, bool]:
         """Returns two bools indicating if variable is mean data or velocity data, respectively"""
@@ -141,7 +226,7 @@ class Parser:
             si, sj = stride
 
         if si == 1:
-            self._sx = slice(i0, 10)
+            self._sx = slice(i0, i1)
         else:
             self._sx = slice(i0, i1, si)
 
@@ -199,8 +284,11 @@ class Parser:
     def _read_ascii(self, fpath: Path) -> np.ndarray:
         return np.loadtxt(fpath)[: self._sy, : self._sx]
 
-    def _read(self, fpath: Path) -> np.ndarray:
-        return self.__read(fpath)
+    def _read(self, fpath: Path, bypass_data=None) -> np.ndarray:
+        if bypass_data is None:
+            return self.__read(fpath)
+        else:
+            return bypass_data
 
     def read(self, fname: str) -> np.ndarray:
         return self._read(self._dpath / fname)
@@ -211,9 +299,11 @@ class Parser:
     def read_mask_step(self, index: int):
         return ~self.read_step("mask", index).astype(bool)
 
-    def read_step(self, name: str, index: int, mask_data: bool = False) -> np.ndarray:
+    def read_step(
+        self, name: str, index: int, mask_data: bool = False, bypass_data=None
+    ) -> np.ndarray:
         fname = "%s_%05d" % (name, index)
-        return self._read(self._dpath / fname)
+        return self._read(self._dpath / fname, bypass_data)
 
     def _read_shape(self, fpath: str) -> Polygon:
         """Overrideable method for transforming polygon in child classes"""
@@ -269,6 +359,7 @@ class ProjectionParser(Parser):
         if bounds is None:
             bounds = self._proj.bounds_to_source(*super().bounds, source=target)
         else:
+
             # TODO: Add support for reverse direction
             bounds = self._proj.bounds_to_source(*bounds, source=target, target=source)
 
@@ -301,6 +392,9 @@ class ProjectionParser(Parser):
         self._pts_interp = yi, xi
 
         self._view_bounds = (u[0] - du, v[0] - dv, u[-1] + du, v[-1] + dv)
+
+        self._xi = xi
+        self._yi = yi
 
         return
         shp = xi.shape
@@ -336,14 +430,18 @@ class ProjectionParser(Parser):
         self._filt = filt
 
         du, dv = du / 2, dv / 2
+
+        print("HERE")
+        self._xi = u
+        self._yi = v
         self._view_bounds = (u[0] - du, v[0] - dv, u[-1] + du, v[-1] + dv)
 
     def _read_shape(self, fpath: str) -> Polygon:
         poly = super()._read_shape(fpath)
         return poly.apply_transform(self._proj.to_source)
 
-    def _read(self, fpath: Path) -> np.ndarray:
-        args = self._pts, super()._read(fpath)
+    def _read(self, fpath: Path, bypass_data=None) -> np.ndarray:
+        args = self._pts, super()._read(fpath, bypass_data)
         kwargs = {"bounds_error": False}
 
         from scipy.interpolate import RegularGridInterpolator

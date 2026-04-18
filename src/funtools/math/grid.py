@@ -1,4 +1,13 @@
+from enum import Enum
+
 import numpy as np
+
+
+class GridTypeEnum(Enum):
+    CENTERED = "centered"
+    LEFT = "left"
+    RIGHT = "right"
+    BINS = "border"
 
 
 def linspace(s0: float, s1: float, n: int, mode: str = "centered") -> np.ndarray:
@@ -102,3 +111,28 @@ def flat_meshgrid(*args, **kwargs) -> tuple[list[np.ndarray], list[int]]:
     shp = list(aargs[0].shape)
     aargs = [ss.flatten() for ss in aargs]
     return aargs, shp
+
+
+def nearest_equal_subsizes(x: np.ndarray, n_grids: int) -> np.ndarray:
+    r = x / x[0]
+    n0 = (n_grids / r.prod()) ** (1 / r.size)
+    return np.round(n0 * r).astype(int)
+
+
+def nearest_equal_ranges(bounds: np.ndarray, n_grids: int) -> tuple[np.ndarray, ...]:
+
+    ndim = len(bounds)
+    if not ndim % 2 == 0:
+        raise ValueError()
+
+    ndim //= 2
+
+    bounds = np.array(bounds)
+    x0 = bounds[:ndim]
+    x1 = bounds[ndim:]
+
+    xl = x1 - x0
+    n = nearest_equal_subsizes(xl, n_grids)
+    dx = xl / n
+
+    return n, dx, x0

@@ -1,28 +1,27 @@
-from pathlib import Path
-import typing
-from cmocean import cm
-import holoviews as hv
 import json
 import pickle
-# from holoviews import opts
+import typing
+from pathlib import Path
 
-
+import holoviews as hv
+import numpy as np
+from cmocean import cm
 from pandas._config.config import is_instance_factory
 from param import Callable
 from scipy.interpolate import RegularGridInterpolator
 
-import numpy as np
-from pathlib import Path
-
-from funtools.math.geometry import equipartitioned_mask2shape
-from funtools.io.input import InputFile
 from funtools.io.field import Parser, ProjectionParser
+from funtools.io.input.main import InputFile
+from funtools.math.geometry import Polygon, equipartitioned_mask2shape
 from funtools.math.projection import LinkedProjections
+from funtools.parallel.multi import simple
 from funtools.ui.colorbar import ColorBar
+
 from ..math import grid
 from ..parallel.mydask import ClassJob, Scheduler
-from funtools.parallel.multi import simple
-from funtools.math.geometry import Polygon
+
+# from holoviews import opts
+
 
 try:
     get_ipython()
@@ -92,7 +91,6 @@ class Simulation:
             return {}
 
         colorbar = "clabel" in kwargs
-
         return {"colorbar": colorbar, **ColorBar(**kwargs["colorbar"]).to_holoviews()}
 
     def _plot_step(
@@ -107,7 +105,7 @@ class Simulation:
 
         opts.update(self._parse_colorbar(opts))
 
-        img = hv.Image(data, bounds=bounds)
+        img = hv.Image(np.flipud(data), bounds=bounds)
         img.opts(**opts)
 
         return img
@@ -130,7 +128,10 @@ class Simulation:
         return mapped_kwargs
 
     def _plot_contours(
-        self, data: np.ndarray | hv.element.raster.Image, kwargs: dict = {}
+        self,
+        data: np.ndarray | hv.element.raster.Image,
+        kwargs: dict = {},
+        gbl_kwargs: dict = {},
     ):
         """Returns contour lines at specfied label. Note if label kwargs is specfied
         Contour is converted to collection of Path"""
@@ -158,7 +159,12 @@ class Simulation:
             if isinstance(val, int):
                 return val
 
-            var_map = {"WaterLevel": -self._input.get_flt("WaterLevel")}
+            try:
+                water_level = self._input.get_flt("WaterLevel")
+            except KeyError:
+                water_level = 0.0
+
+            var_map = {"WaterLevel": -water_level}
             return var_map[val]
 
         levels = [parse(it) for it in levels]
@@ -166,7 +172,7 @@ class Simulation:
         contours.opts(**opts)
 
         if not is_label:
-            return contours
+            return contours.opts(gbl_kwargs)
 
         # Seperating contour into lines to apply labels
         contour_data = [x for x in contours.data]
@@ -176,13 +182,23 @@ class Simulation:
         args = list(zip(labels, colors, contour_data))
 
         label, color, contour = args[0]
-        plt = hv.Path(contour, label=label).opts(color=color, **opts)
+        plt = hv.Path(contour, label=label).opts(color=color, **opts, **gbl_kwargs)
         for label, color, contour in args[1:]:
-            plt = plt * hv.Path(contour, label=label).opts(color=color, **opts)
+            plt = plt * hv.Path(contour, label=label).opts(
+                color=color, **opts, **gbl_kwargs
+            )
 
         return plt
 
-    def plot(self, name: str, index: int, kwargs: dict = {}):
+    def plot(
+        self,
+        name: str,
+        index: int,
+        kwargs: dict = {},
+        data=None,
+        no_mask=False,
+        bypass_data=None,
+    ):
         """ "Returns holoviews/bokeh plot of FUNWAVE 2D field variable
         at specfied timestep with optional configuration"""
 
@@ -200,10 +216,15 @@ class Simulation:
         # Optional scalebar
         plt_kwargs.update(self._get_scalebar_opts(get_kwargs("scalebar")))
 
-        data = np.flipud(self.data.read_step(name, index))
-        mask = np.flipud(self.data.read_mask_step(index))
-        data_masked = np.ma.masked_array(data, mask=mask)
+        if data is None:
+            data = self.data.read_step(name, index, bypass_data=bypass_data)
+        mask = self.data.read_mask_step(index)
 
+        if no_mask:
+            data_masked = data
+        else:
+            data_masked = np.ma.masked_array(data, mask=mask)
+            data_masked[mask] = np.nan
         bounds = self.data.view_bounds
         plt = self._plot_step(data_masked, bounds, plt_kwargs)
 
@@ -211,7 +232,7 @@ class Simulation:
         opts = get_kwargs("bathy_contour")
         if len(opts) > 0:
             bathy = np.flipud(self.data.read_bathy())
-            plt = plt * self._plot_contours(bathy, opts)
+            plt = plt * self._plot_contours(bathy, opts, kwargs["gbl"])
 
         # Setting default global options
         x0, y0, x1, y1 = self.data.view_bounds
@@ -221,8 +242,8 @@ class Simulation:
             "ylim": (y0, y1),
         }
 
-        if "global" in kwargs:
-            gbl_kwargs.update(kwargs["global"])
+        if "gbl" in kwargs:
+            gbl_kwargs.update(kwargs["gbl"])
 
         return plt.opts(**gbl_kwargs)
 
@@ -271,10 +292,12 @@ class Simulation:
 
         data_land = np.ma.masked_array(data, mask=mask2)
 
-        filt = ~np.isnan(data_land)
+        bathy2 = bathy.copy()
+        bathy2[bathy2 > 0] = 0
 
-        filt = bathy > 0
-        data_land -= bathy
+        data_land -= bathy2
+
+        data_land += water_level
 
         plt_kwargs = get_kwargs("flood")
 
@@ -298,7 +321,7 @@ class Simulation:
         if "global" in kwargs:
             gbl_kwargs.update(kwargs["global"])
 
-        return plt.opts(**gbl_kwargs)
+        return plt.opts(**gbl_kwargs), data_land
 
     def save_plot(
         self,
@@ -413,7 +436,13 @@ class Simulation:
         bathy = self.data.read_bathy()
         land = bathy > 0
 
-        no_water_level = bathy > -self.input.get_flt("WaterLevel")
+        try:
+            water_level = self.input.get_flt("WaterLevel")
+
+        except KeyError:
+            water_level = 0
+
+        no_water_level = bathy > -water_level
 
         idxs = self.data.get_time_steps("eta")
 
@@ -462,9 +491,9 @@ class Simulation:
             pickle.dump(poly, fh, pickle.HIGHEST_PROTOCOL)
 
         t = np.array(idxs) * self.input.get_flt("PLOT_INTV")
+        water_level = no_water_level & ~land
         land = np.sum(land) * cell_area
 
-        water_level = no_water_level & ~land
         poly = equipartitioned_mask2shape(x, y, water_level, n_procs=n_procs)
         fpath = flood_dpath / "water_level_poly.pkl"
         with open(fpath, "wb") as fh:
@@ -525,13 +554,11 @@ class Simulation:
         for p in plts[1:]:
             plt = plt * p
 
-        print(kwargs)
         if "bathy" in kwargs:
             get_kwargs = lambda kw: kwargs[kw] if kw in kwargs else {}
 
             bounds = self.data.view_bounds
             bathy = self.data.read_bathy()
-            print("HERE")
             plt_kwargs = get_kwargs("bathy")
 
             plt = self._plot_step(bathy, bounds, plt_kwargs) * plt
@@ -552,7 +579,7 @@ class Simulation:
 
 
 from bokeh.models import ColumnDataSource
-from shapely.geometry import Polygon, MultiPolygon
+from shapely.geometry import MultiPolygon, Polygon
 
 
 def shapely_2_bokeh_datasource(poly):
@@ -646,9 +673,19 @@ class ProjectedSimulation(Simulation):
 
         return plt.opts(**gbl_kwargs)
 
-    def plot(self, name: str, index: int, kwargs: dict = {}):
+    def plot(
+        self,
+        name: str,
+        index: int,
+        kwargs: dict = {},
+        data=None,
+        no_mask=False,
+        bypass_data=None,
+    ):
         # Calls same paraent plot routines with projected data
-        plt = super().plot(name, index, kwargs)
+        plt = super().plot(
+            name, index, kwargs, data=data, no_mask=no_mask, bypass_data=bypass_data
+        )
 
         # Call parent plot first to saving arg/kwargs in dry run mode
         if self.dry_run:
@@ -672,7 +709,7 @@ class ProjectedSimulation(Simulation):
 
     def plot_flood(self, name: str, index: int, kwargs: dict = {}):
         # Calls same paraent plot routines with projected data
-        plt = super().plot_flood(name, index, kwargs)
+        plt, data = super().plot_flood(name, index, kwargs)
 
         # Call parent plot first to saving arg/kwargs in dry run mode
         if self.dry_run:
@@ -692,4 +729,4 @@ class ProjectedSimulation(Simulation):
         if "global" in kwargs:
             gbl_kwargs.update(kwargs["global"])
 
-        return plt.opts(**gbl_kwargs)
+        return plt.opts(**gbl_kwargs), data

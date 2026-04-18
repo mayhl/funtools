@@ -14,6 +14,11 @@ license = "BSD-2-Clause"
 readme = "README.md"
 packages = [{include = "funtools", from="src"}]
 
+include = [
+    { path = "src/metadata", format = ["sdist", "wheel"] },
+    { path = "src/metadata/*.json", format = ["sdist", "wheel"] }
+]
+
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.5.2"
 
@@ -42,6 +47,10 @@ plotly = "^5.24.1"
 webdriver-manager = "^4.0.2"
 dask = {extras = ["distributed"], version = "^2025.5.1"}
 shapelysmooth = "^0.2.1"
+arcgis = "<=1.8"
+pydantic = "^2.12.5"
+numpydantic = "^1.8.0"
+dacite = "^1.9.2"
 
 [build-system]
 requires = ["poetry-core"]

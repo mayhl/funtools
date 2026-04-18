@@ -6,68 +6,6 @@ from matplotlib.colors import LinearSegmentedColormap
 
 class ColorBar:
 
-    @classmethod
-    def parse_custom_opts(cls, **opts):
-        """Returns update dict of converted custom colorbar options"""
-        if not "colorbar" in opts:
-            return {}
-
-        if isinstance(opts["colorbar"], bool):
-            return {}
-        # Hack to disable colorbar legend with clabel
-        colorbar = "clabel" in opts
-
-        return {"colorbar": colorbar, **ColorBar(**opts["colorbar"]).to_holoviews()}
-
-    @classmethod
-    def get_parsed_opts(cls, **opts) -> dict:
-        """Returns a copy of options dict updated with parsed custom colorbar options"""
-        opts = opts.copy()
-        opts.update(cls.parse_custom_opts(**opts))
-        return opts
-
-    @classmethod
-    def get_updated_range_opts(
-        cls, new_vmin: None | float = None, new_vmax: None | float = None, **opts
-    ) -> dict:
-        """Returns a copy of options dict with update  range"""
-
-        opts = opts.copy()
-        if not new_vmin is None:
-            opts["colorbar"]["vmin"] = new_vmin
-
-        if not new_vmax is None:
-            opts["colorbar"]["vmax"] = new_vmax
-
-        return opts
-
-    @classmethod
-    def check_ranges_required(cls, **opts) -> tuple[bool, bool]:
-        """Returns two bools indicating if minimum and maximum ranges are required, i.e., only vmid specfied."""
-
-        rtn_dummy = False, False
-
-        if not "colorbar" in opts:
-            return rtn_dummy
-
-        cb_opts = opts["colorbar"]
-        if isinstance(cb_opts, bool):
-            return rtn_dummy
-
-        if not "vmid" in cb_opts:
-            return rtn_dummy
-
-        if cb_opts["vmid"] is None:
-            return rtn_dummy
-
-        def check_bound(key: str) -> bool:
-            if not key in cb_opts:
-                return True
-
-            return cb_opts[key] is None
-
-        return check_bound("vmin"), check_bound("vmax")
-
     def __init__(
         self,
         provider: str,
@@ -76,7 +14,7 @@ class ColorBar:
         vmin: float | None = None,
         vmax: float | None = None,
         vmid: float | None = None,
-        reverse: bool = False 
+        reverse: bool = False,
     ) -> None:
 
         if provider == "cmocean":
@@ -84,11 +22,7 @@ class ColorBar:
             if not base_name in cmocean.cm.cmapnames:
                 raise TypeError(f"Invalid cmocean colormap: {name}")
 
-            if  reverse:
-                name = f"{name}r"
-
             self._cm = cmocean.cm.cmap_d[name]
-
         else:
             cmaps = hv.plotting.util.list_cmaps(
                 provider=provider, records=True, reverse=False
@@ -106,13 +40,13 @@ class ColorBar:
             def convert(c):
                 r, g, b = [s / 256 for s in hv.plotting.util.hex2rgb(c)]
                 return r, g, b, 1.0
-            colors = [convert(c) for c in cm]
 
-            if reverse:
-                colors = list(reversed(colors))
             self._cm = LinearSegmentedColormap.from_list(
-                name, colors=colors
+                name, colors=[convert(c) for c in cm]
             )
+
+        if reverse:
+            self._cm = self._cm.reversed()
 
         is_vmin = not vmin is None
         is_vmax = not vmax is None
@@ -136,10 +70,9 @@ class ColorBar:
         if vmid is None:
             vmid = (vmin + vmax) / 2
         else:
-            if vmid < vmin:
+            if vmid <= vmin:
                 raise ValueError("vmid is smaller than vmin")
-            if vmid > vmax:
-
+            if vmid >= vmax:
                 raise ValueError("vmid is larger than vmax")
 
         xi = [vmin, vmid, vmax]

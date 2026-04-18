@@ -1,6 +1,7 @@
 import numpy as np
-from funtools.parallel import simple as sparallel
-from shapely.geometry import Polygon, MultiPolygon, Point
+from shapely.geometry import MultiPolygon, Point, Polygon
+
+from .parallel import simple as sparallel
 
 
 def _idx_filter_scatter(x, y, x0, y0, x1, y1):
@@ -33,40 +34,39 @@ def get_balanced_slices(n, m, offset=0):
     return idxs
 
 
+from tqdm.notebook import tqdm
+
+
 def _filter_scatter_poly(data, polys):
-    sdata = []
+
+    n, _ = data.shape
+    filt = np.zeros(n, dtype=bool)
+
     for poly in polys:
 
-        
+        subfilt = filter_scatter_bounds(data, poly)
+        subdata = data[~filt, :2][subfilt, :]
+        filt[subfilt] = [poly.contains(Point(x, y)) for x, y in tqdm(subdata)]
+
+    return filt
+
+
+def filter_scatter_poly(
+    data, poly, n_procs=4, target_size=10000, exclude: bool = False
+):
+
+    if False:  # type(poly) is MultiPolygon:
+
+        print("MultiPolygon")
         filt = filter_scatter_bounds(data, poly)
-        tdata = data[filt, :]
-        
-        x, y = tdata[:, 0], tdata[:, 1]
-
-        idx = [poly.contains(Point(x, y)) for x, y in zip(x, y)]
-        sdata.append(tdata[idx, :])
-
-        n, d = tdata.shape
-        n2, d = tdata[idx, :].shape
-        # if n > 0 and not n2 == n:
-        #     print(data.shape)
-        #     print(tdata.shape)
-        #     print(tdata[idx, :].shape)
-        #     print('-----')
-
-    return np.concatenate(sdata)
-
-
-def filter_scatter_poly(data, poly, n_procs=4):
-    if type(poly) is MultiPolygon:
-        idx = filter_scatter_bounds(data, poly)
-        gdata = data[idx, :].copy()
+        gdata = data[filt, :]  # .copy()
         polys = list(poly.geoms)
     else:
+        n, _ = data.shape
+        filt = np.zeros(n, dtype=bool)
         polys = [poly]
-        gdata = data.copy()
+        gdata = data  # .copy()
 
-    target_size = 10000
     n, _ = gdata.shape
     m = int(n / target_size)
     if m < n_procs:
@@ -75,16 +75,15 @@ def filter_scatter_poly(data, poly, n_procs=4):
     slices = get_balanced_slices(n, m)
     args_list = [gdata[s, :] for s in slices]
     # print(args_list[0].shape)
+
     rtn_vals = sparallel(
         _filter_scatter_poly, n_procs, args_list, common_args=polys, p_desc="Filtering"
     )
 
-    # sdata = []
-    # for p in tqdm(cpolys, desc=k):
-    #     idx = filter_scatter_poly(gdata, p)
+    rtn_vals = np.concatenate(rtn_vals).astype(bool)
+    filt[~filt] = rtn_vals
 
-    #     if len(idx) > 0:
-    #         sdata.append(gdata[idx, :])
-    #         gdata = gdata[~idx,:]
-
-    return np.concatenate(rtn_vals)
+    if exclude:
+        return data[~filt, :]
+    else:
+        return data[filt, :]
