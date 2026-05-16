@@ -1,0 +1,109 @@
+{
+  "t": {
+    "short_name": "time",
+    "long_name": "Local Time",
+    "standard_name": "local_tim",
+    "latex": "t",
+    "units": "s"
+  },
+  "x": {
+    "short_name": "x",
+    "long_name": "Local x",
+    "standard_name": "local_x",
+    "latex": "x",
+    "units": "m"
+  },
+  "y": {
+    "short_name": "y",
+    "long_name": "Local y",
+    "standard_name": "local_y",
+    "latex": "y",
+    "units": "m"
+  },
+  "sta_idx": {
+    "short_name": "sta_idx",
+    "long_name": "Station Number",
+    "standard_name": "station_number"
+  },
+  "bathy": {
+    "short_name": "depth",
+    "long_name": "Depth",
+    "standard_name": "depth",
+    "units": "m"
+  },
+  "eta": {
+    "short_name": "eta",
+    "long_name": "Wave Height",
+    "standard_name": "eta",
+    "latex": "\\eta",
+    "units": "m"
+  },
+  "etamean": {
+    "short_name": "etamean",
+    "long_name": "Wave Setup",
+    "standard_name": "etamean",
+    "latex": "\\eta",
+    "units": "m"
+  },
+  "u": {
+    "short_name": "u",
+    "long_name": "Local Eastward Velocity",
+    "standard_name": "local_eastward_velocity",
+    "latex": "u",
+    "units": "m s^-1"
+  },
+  "v": {
+    "short_name": "v",
+    "long_name": "Local Northward Velocity",
+    "standard_name": "local_northward_velocity",
+    "latex": "u",
+    "units": "m s^-1"
+  },
+  "umean": {
+    "short_name": "umean",
+    "long_name": "Mean Local Eastward Velocity",
+    "standard_name": "local_eastward_velocity",
+    "latex": "\\bar{u}",
+    "units": "m s^-1"
+  },
+  "vmean": {
+    "short_name": "vmean",
+    "long_name": "Mean Local Northward Velocity",
+    "standard_name": "local_northward_velocity",
+    "latex": "\\bar{v}",
+    "units": "m s^-1"
+  },
+  "age": {
+    "short_name": "age",
+    "long_name": "Breaking Time",
+    "units": "s"
+  },
+  "ulagm": {
+    "short_name": "ulagm"
+  },
+  "vlagm": {
+    "short_name": "vlagm"
+  },
+  "Havg": {
+    "short_name": "Havg",
+    "long_name": "Average Wave Height",
+    "latex": "h_{\\textrm{avg}}",
+    "units": "m"
+  },
+  "Hrms": {
+    "short_name": "Hrm",
+    "long_name": "Signficant Wave Height",
+    "latex": "h_{\\textrm{rms}}",
+    "units": "m"
+  },
+  "Hsig": {
+    "short_name": "Hs",
+    "long_name": "Signficant Wave Height",
+    "latex": "h_{\\textrm{s}}",
+    "units": "m"
+  },
+  "mask": {
+    "short_name": "mask",
+    "long_name": "Wet/Dry Mask"
+  }
+}

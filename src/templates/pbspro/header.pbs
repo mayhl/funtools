@@ -1,0 +1,19 @@
+#!/bin/bash
+## ----------------------
+## Required PBS Directive
+## ----------------------
+#PBS -S /bin/bash
+#PBS -A {{ account }}
+#PBS -q {{ queue }}
+#PBS -N {{ name }}
+#PBS -l select={{ nodes }}:ncpus={{ cpus }}:mpiprocs={{ mpi }}
+#PBS -l walltime={{ walltime }}
+#PBS -l application=other
+#PBS -j oe
+{% if email is defined -%}
+#PBS {{ email }}
+{% endif -%}
+{% if array_range is defined -%}
+#PBS -J {{ array_range }}
+#PBS -r y
+{%- endif %}

@@ -1,0 +1,16 @@
+{
+  "pbspro": {
+    "job_id": "PBS_JOBID",
+    "job_name": "PBS_JOBNAME",
+    "work_dir": "PBS_O_WORKDIR",
+    "array_id": "PBS_ARRAYID",
+    "host": "PBS_O_HOST"
+  },
+  "slurm": {
+    "job_id": "SLURM_JOBID",
+    "job_name": "SLURM_JOB_NAME",
+    "work_dir": "SLURM_SUBMIT_DIR",
+    "array_id": "SLURM_ARRAY_TASK_ID",
+    "host": "PBS_SUBMIT_HOST"
+  }
+}
